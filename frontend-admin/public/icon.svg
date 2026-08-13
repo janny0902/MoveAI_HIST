@@ -1,0 +1,12 @@
+<!-- 기사 화면과 같은 카카오 팔레트. 노랑 바탕 + 검은 트럭 실루엣.
+     색은 styles.css의 --kakao-yellow / --kakao-black과 같은 값이다.
+     적재물(안쪽 사각형)은 흰색이다 — 강조색을 노랑으로 통일해서, 노랑 바탕 위에
+     노랑을 또 쓰면 형태가 사라진다. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="40" fill="#ffcd00"/>
+  <rect x="40" y="58" width="86" height="62" rx="6" fill="none" stroke="#3c3c3c" stroke-width="8"/>
+  <path d="M126 78h20l16 22v20h-36z" fill="none" stroke="#3c3c3c" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="70" cy="132" r="12" fill="#3c3c3c"/>
+  <circle cx="140" cy="132" r="12" fill="#3c3c3c"/>
+  <rect x="56" y="76" width="26" height="26" rx="3" fill="#fff"/>
+</svg>

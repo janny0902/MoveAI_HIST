@@ -30,7 +30,7 @@
 | 역할 | 기술 |
 |------|------|
 | 기사 UI | Vue 3 |
-| 관리자 UI | React |
+| 관리자 UI | Vue 3 (`/admin`) |
 | 도메인 API | Spring Boot |
 | 공간 AI | FastAPI · Depth Anything · OpenCV · Gemini Vision · YOLO-seg |
 | 지도 | 카카오맵 JS + REST 길찾기 |

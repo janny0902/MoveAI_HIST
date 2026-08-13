@@ -62,6 +62,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: moveai
       AI_BASE_URL: http://hist-moveai-backend-ai:8000
       KAKAO_REST_KEY: ${KAKAO_REST_KEY:-}
+      ADMIN_MATCHING_BASE_URL: ${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
+      ADMIN_VISION_BASE_URL: ${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
     ports:
       - "21808:8080"
     networks:
@@ -95,9 +97,11 @@ services:
       context: ./frontend-admin
     container_name: hist-moveai-frontend-admin
     environment:
-      VISION_BASE_URL: ${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
-      MATCHING_BASE_URL: ${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
+      # 동일 출처 BFF (Vue → /api/admin/* → Spring → Cloud Run)
+      VISION_BASE_URL: /api/admin/vision
+      MATCHING_BASE_URL: /api/admin/matching
       KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
+      PORT: "8080"
     networks:
       - moveainetwork
     restart: unless-stopped

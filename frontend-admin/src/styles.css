@@ -1,0 +1,530 @@
+/* 디자인 토큰 — 기사 화면(frontend/src/App.vue)의 카카오풍 스타일과 맞춘다.
+   두 화면이 한 제품으로 읽혀야 해서 팔레트/폰트/모서리/그림자를 같은 값으로 쓴다.
+   원본 값은 App.vue의 :root에 있다. 한쪽만 고치지 말 것.
+
+   변수 이름은 그대로 두고 값만 바꿨다. 아래 300여 줄의 세부 규칙이 전부 이 토큰을
+   참조하므로, 이름을 바꾸면 화면 전체가 한꺼번에 깨진다. */
+:root {
+  /* 기사 화면과 동일한 원색.
+     기사 화면에는 --kakao-blue(#2f80ed)도 있지만 관리자 화면은 쓰지 않는다.
+     강조색을 노랑 하나로 통일했다 — 파랑을 다시 들이려면 아래 --accent부터 볼 것. */
+  --kakao-yellow: #ffcd00;
+  --kakao-black: #3c3c3c;
+  --kakao-bg: #f2f2f2;
+
+  --bg: var(--kakao-bg);
+  --fg: var(--kakao-black);
+  --muted: #888;
+  --card: #fff;
+  --line: #eee;
+  /* 강조색은 노랑 하나로 통일했다. 파랑은 쓰지 않는다.
+     선·점·채움처럼 "면"으로 보이는 것에는 원색 노랑을 그대로 쓴다. */
+  --accent: var(--kakao-yellow);
+  /* 글자에는 어두운 노랑을 쓴다. #ffcd00은 흰 배경 대비가 1.50:1이라 글자로 쓰면
+     사실상 안 읽힌다(기준 4.5:1). 같은 노랑 계열이면서 대비를 지키는 값을 따로 둔다 —
+     흰 배경 5.28:1, 카드 안쪽 회색(#f2f2f2) 배경 4.72:1. 둘 다 기준을 넘는다.
+     굵고 큰 글자(.earn-amount)도 이 값을 쓴다. 같은 숫자가 자리마다 다른 노랑이면
+     색이 의미를 잃는다. */
+  --accent-ink: #856800;
+  --ok: #0b6e4f;          /* App.vue .cc-meta .esg */
+  --bad: #ff4b4b;         /* App.vue .badge-new */
+  --warn: #856404;        /* App.vue .badge-race */
+
+  /* 기사 화면은 테두리 대신 옅은 그림자로 카드를 띄운다(.shadow). */
+  --shadow: 0 4px 16px rgba(0, 0, 0, .06);
+  /* 입력칸 테두리만 카드보다 진하다(App.vue .field input). */
+  --line-strong: #ddd;
+  --radius-card: 16px;
+  --radius-ctl: 10px;
+}
+/* 기사 화면에는 다크 모드가 없다. 관리자 화면만 어두워지면 한 제품으로 보이지 않으므로
+   밝은 화면을 기본으로 두되, OS를 어둡게 쓰는 사람을 위해 같은 팔레트의 어두운 판을
+   남겨 둔다(노랑/파랑은 그대로, 중립색만 뒤집는다). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a;        /* App.vue .toast 배경과 같은 계열 */
+    --fg: #f2f2f2;
+    --muted: #9a9a9a;
+    --card: #2a2a2a;
+    --line: #3a3a3a;
+    --line-strong: #4a4a4a;
+    /* 어두운 배경에서는 원색 노랑이 9.56:1로 잘 읽힌다. 글자용을 따로 어둡게 둘 이유가 없다. */
+    --accent-ink: var(--kakao-yellow);
+    --ok: #4ec9a0;
+    --bad: #ff6b6b;
+    --warn: #ffcd00;
+    --shadow: 0 4px 16px rgba(0, 0, 0, .35);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  /* App.vue와 같은 스택. Pretendard를 따로 받아오지 않는 것까지 같다 —
+     한쪽만 웹폰트를 쓰면 같은 글자가 두 화면에서 다르게 보인다. */
+  font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif;
+}
+/* 기사 화면이 480px 모바일 폭이다(App.vue .kakao-app). 관리자도 같은 폭으로 맞춘다. */
+.app { max-width: 480px; margin: 0 auto; padding: 12px 12px 24px; }
+
+/* 상단 브랜드 바 — App.vue의 .k-header / .top-nav / .brand와 같은 모양. */
+.k-header {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--card); padding: 10px 12px 8px;
+}
+.k-header-inner {
+  max-width: 480px; margin: 0 auto;
+  display: flex; align-items: center; gap: 8px;
+}
+.brand { font-weight: 900; font-size: 18px; }
+.brand-tag {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  background: var(--bg); padding: 3px 7px; border-radius: 6px;
+}
+.driver-link {
+  margin-left: auto;
+  border: none; border-radius: 8px;
+  background: var(--accent); color: var(--kakao-black);
+  font-size: 12px; font-weight: 800;
+  padding: 6px 10px; cursor: pointer;
+  font-family: inherit;
+}
+.driver-link:active { transform: scale(0.98); }
+.driver-link.demo-reset-btn {
+  margin-left: 0;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  color: var(--kakao-black);
+}
+.driver-link:disabled { opacity: .55; cursor: default; }
+
+h1 { font-size: 20px; font-weight: 900; margin: 4px 0 6px; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: .8rem; margin: 0 0 14px; line-height: 1.6; }
+/* 테두리가 아니라 그림자로 띄운다. 다만 .card.error / .card.xai 등이 border-color로
+   상태를 표시하므로 테두리 자체는 남기고 기본색만 배경에 가깝게 둔다. */
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius-card); padding: 14px; margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.card.error { border-color: var(--bad); color: var(--bad); font-size: .9rem; }
+/* App.vue .field — 라벨은 작고 흐리게, 입력칸은 흰 바탕에 진한 테두리. */
+.field-label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: 6px; }
+.text-input {
+  width: 100%; padding: 12px; font-size: .95rem; border-radius: var(--radius-ctl);
+  border: 1px solid var(--line-strong); background: var(--card); color: var(--fg);
+}
+.text-input:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -1px; }
+/* App.vue .k-btn — 모서리 10px, 굵기 700. 기사 화면 버튼과 같은 손맛이 나야 한다. */
+.btn {
+  display: block; width: 100%; margin-top: 10px; padding: 13px;
+  border: none; border-radius: var(--radius-ctl);
+  font-size: .95rem; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+.btn:disabled { opacity: .5; cursor: default; }
+/* 주 버튼은 카카오 노랑 + 검은 글씨다(App.vue .k-btn.primary). */
+.btn.primary { background: var(--accent); color: var(--kakao-black); }
+/* App.vue .k-btn.outline */
+.btn.secondary {
+  background: var(--card); color: var(--fg); border: 1.5px solid var(--line);
+}
+.preview { width: 100%; border-radius: 12px; margin-top: 12px; display: block; }
+.steps { list-style: none; margin: 0; padding: 0; font-size: .9rem; }
+.steps li { display: flex; gap: 8px; padding: 6px 0; color: var(--muted); }
+.steps li[data-state="done"] { color: var(--fg); }
+.steps li[data-state="active"] { color: var(--accent-ink); font-weight: 600; }
+.steps li[data-state="fail"] { color: var(--bad); }
+.mark { width: 1.2em; flex: none; }
+.verdict { font-size: 1.4rem; font-weight: 900; margin: 0 0 4px; letter-spacing: -.02em; }
+.verdict.ok { color: var(--ok); }
+.verdict.bad { color: var(--bad); }
+.result-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.result-table th, .result-table td { padding: 7px 0; border-bottom: 1px solid var(--line); }
+.result-table th { text-align: left; color: var(--muted); font-weight: 400; }
+.result-table td { text-align: right; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: .8rem; line-height: 1.5; margin-top: 10px; }
+.card.notice { border-color: var(--muted); color: var(--muted); font-size: .85rem; }
+.destination-line {
+  color: var(--muted); font-size: .8rem; margin: -6px 0 14px; padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+
+/* 목적지 확인 팝업 — App.vue의 .k-overlay / .k-modal-center와 같은 값. */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .45);
+  display: flex; align-items: flex-end; justify-content: center; padding: 16px; z-index: 10;
+}
+@media (min-width: 480px) { .overlay { align-items: center; } }
+.dialog {
+  background: var(--card); border: none; border-radius: 20px;
+  padding: 18px; width: 100%; max-width: 420px; max-height: 88vh; overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+.dialog-title { font-size: 1.05rem; font-weight: 800; margin: 0 0 6px; }
+.dialog-body { color: var(--muted); font-size: .88rem; margin: 0 0 12px; }
+.dialog-default {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; font-size: .88rem; margin: 0 0 14px; overflow-wrap: anywhere;
+}
+.dialog-default-label { display: block; color: var(--muted); font-size: .74rem; margin-bottom: 3px; }
+.dialog-error { color: var(--bad); font-size: .85rem; margin: 10px 0 0; }
+.btn.text {
+  background: transparent; color: var(--muted); border: none;
+  font-weight: 400; font-size: .9rem; padding: 10px;
+}
+.result-list { list-style: none; margin: 14px 0 0; padding: 0; }
+.result-item {
+  display: block; width: 100%; text-align: left; padding: 12px;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 8px; margin-bottom: 8px; font-size: .9rem; cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.result-item:hover { border-color: var(--accent-ink); }
+
+/* 관리자 / 화주사 화면 전환.
+   기사 화면의 하단 탭(.k-bottom-nav)은 흰 바탕에 선택된 것만 진하게 굵어진다.
+   여기서는 상단 탭이라 흰 알약 위에 같은 규칙을 얹었다 — 선택된 탭만 노란 밑줄. */
+.tabs {
+  display: flex; gap: 4px; margin: 10px 0 14px;
+  background: var(--card); border-radius: 12px; padding: 4px;
+  box-shadow: var(--shadow);
+}
+.tab {
+  flex: 1; padding: 9px 6px; font-size: .78rem; cursor: pointer;
+  background: transparent; color: var(--muted);
+  border: none; border-radius: 9px; font-family: inherit; font-weight: 700;
+  border-bottom: 2.5px solid transparent;
+}
+.tab.active { background: var(--bg); color: var(--fg); border-bottom-color: var(--accent); }
+
+/* 운송장 등록 폼 */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.address-field { margin-top: 14px; }
+.search-row { display: flex; gap: 8px; align-items: flex-start; }
+.search-row .text-input { flex: 1; }
+.btn.compact { width: auto; margin-top: 0; padding: 10px 14px; font-size: .9rem; white-space: nowrap; }
+.picked {
+  display: flex; align-items: center; gap: 8px; justify-content: space-between;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; font-size: .88rem; overflow-wrap: anywhere;
+}
+.picked .btn.text { width: auto; padding: 4px 8px; flex: none; }
+.ok-message { color: var(--ok); font-size: .88rem; margin: 10px 0 0; }
+.field-label { margin-top: 12px; }
+.card > .field-label:first-child { margin-top: 0; }
+
+/* 차량 제원 — 사진 속 차량과 등록 제원이 다르면 결과가 통째로 어긋난다. */
+.truck-spec {
+  margin: 12px 0 4px; padding: 12px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--line);
+}
+.truck-spec-title { font-size: .9rem; font-weight: 600; margin-bottom: 8px; }
+.truck-spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 0; }
+.truck-spec-grid div { min-width: 0; }
+.truck-spec-grid dt { font-size: .72rem; color: var(--muted); }
+.truck-spec-grid dd { margin: 2px 0 0; font-size: .88rem; overflow-wrap: anywhere; }
+.truck-spec-grid dd .sub { display: inline; margin: 0; font-size: .78rem; }
+.truck-spec-warn { font-size: .78rem; color: var(--muted); line-height: 1.5; margin: 10px 0 0; }
+.truck-spec-warn.standalone {
+  margin: 12px 0 4px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--bad); color: var(--bad);
+}
+
+/* 결과 설명(XAI) */
+.why { margin: 14px 0 0; font-size: .86rem; line-height: 1.6; }
+.why p { margin: 0 0 6px; }
+.budgets { margin-top: 12px; display: grid; gap: 10px; }
+.budget-head, .budget-foot { display: flex; justify-content: space-between; gap: 8px; }
+.budget-head { font-size: .8rem; margin-bottom: 4px; }
+.budget-foot { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+/* App.vue .progress-bar — 8px 트랙에 노란 채움. */
+.budget-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.budget-bar > span { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.explain { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.explain > summary { font-size: .85rem; cursor: pointer; color: var(--accent-ink); font-weight: 700; }
+.explain-steps { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 12px; }
+.explain-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.explain-label { font-size: .85rem; font-weight: 600; }
+.explain-value { font-size: .85rem; white-space: nowrap; }
+.explain-value em { color: var(--bad); font-style: normal; margin-right: 6px; font-size: .78rem; }
+.explain-why { font-size: .78rem; color: var(--muted); line-height: 1.6; margin: 4px 0 0; }
+.explain-scale { font-size: .72rem; color: var(--muted); margin: 2px 0 0; }
+
+/* 운송장 박스 입력 */
+.box-list { margin-top: 14px; }
+.box-list-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.box-list-head .field-label { margin: 0; }
+.box-row { display: grid; grid-template-columns: 56px 1fr 1fr 1fr 40px; gap: 6px; margin-top: 8px; }
+.box-row.group-dims { grid-template-columns: 56px 1fr 1fr 1fr; }
+.box-row .text-input { padding: 8px; font-size: .9rem; }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px; }
+.calc-line { font-size: .82rem; margin: 10px 0 0; }
+.calc-line .sub { display: inline; margin: 0; font-size: .76rem; }
+
+.check-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: #fafafa; cursor: pointer; font-size: .9rem; line-height: 1.35;
+}
+.check-row input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; }
+.check-row .sub { display: block; color: var(--muted); font-size: .78rem; font-weight: 400; margin-top: 2px; }
+.photo-group-panel {
+  margin-top: 12px; padding: 12px; border: 1px dashed var(--accent); border-radius: 10px;
+  background: #fffef5;
+}
+.floor-photo-preview {
+  display: block; width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 8px; margin-top: 10px; border: 1px solid var(--line);
+}
+.fill-table-wrap { margin-top: 14px; }
+.fill-table {
+  width: 100%; border-collapse: collapse; font-size: .85rem;
+}
+.fill-table th, .fill-table td {
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line);
+}
+.fill-table th { color: var(--muted); font-weight: 600; font-size: .75rem; }
+.fill-table tr.emphasis td { background: #fff8d6; }
+.fill-table tr.emphasis b { color: #1a5bb8; }
+
+/* 촬영 전 현재 위치 */
+.location-card { padding-bottom: 14px; }
+.location-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.location-head .field-label { margin: 0; }
+.location-accuracy { font-size: .72rem; color: var(--muted); }
+.location-map {
+  width: 100%; height: 180px; margin: 10px 0 8px;
+  border-radius: 8px; overflow: hidden; border: 1px solid var(--line);
+}
+.location-address { font-size: .95rem; margin: 8px 0 0; overflow-wrap: anywhere; }
+.location-address.muted { color: var(--muted); font-size: .85rem; }
+.location-coord { font-size: .74rem; color: var(--muted); margin: 2px 0 0; }
+
+/* 차량 번호: 라벨 옆의 "직접 입력" 토글 */
+.location-head .btn.text { width: auto; margin: 0; padding: 0; font-size: .78rem; }
+
+/* 진행 단계의 남은 시간 */
+.steps li { justify-content: flex-start; }
+.step-eta { margin-left: auto; font-size: .78rem; color: var(--muted); font-weight: 400; }
+.location-route { font-size: .82rem; margin: 8px 0 0; overflow-wrap: anywhere; }
+
+/* 운행 중 재매칭 */
+.card.tracking { border-color: var(--accent); }
+.tracking-head { display: flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 600; }
+.tracking-next { margin-left: auto; font-weight: 400; font-size: .78rem; color: var(--muted); }
+.tracking-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  animation: tracking-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tracking-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.card.tracking .btn { margin-top: 12px; }
+
+/* PC 웹캠 촬영 */
+.webcam-view {
+  width: 100%; border-radius: 8px; background: #000; display: block;
+  aspect-ratio: 4 / 3; object-fit: cover;
+}
+
+/* 상단 요약 띠 — 결론만. 근거는 아래 결과 카드에 있다. */
+.status-banner {
+  border-radius: var(--radius-card); padding: 12px 14px; margin-bottom: 10px;
+  border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow);
+}
+.status-banner.ok { border-color: var(--ok); }
+.status-banner.bad { border-color: var(--bad); }
+.status-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.status-main strong { font-size: 1.05rem; }
+.status-banner.ok .status-main strong { color: var(--ok); }
+.status-banner.bad .status-main strong { color: var(--bad); }
+.status-figure { font-size: .9rem; }
+.status-sub {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: .78rem; color: var(--muted); margin-top: 6px;
+}
+.status-live { color: var(--accent-ink); font-weight: 600; }
+.btn.text.inline { display: inline; width: auto; margin: 0; padding: 0; text-decoration: underline; }
+
+/* 대기 운송장 목록 */
+.cargo-list { list-style: none; margin: 0; padding: 0; }
+.cargo-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.cargo-row:last-child { border-bottom: none; }
+.cargo-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.cargo-id { font-weight: 600; font-size: .9rem; }
+.cargo-size { font-size: .85rem; white-space: nowrap; }
+.cargo-size em { font-style: normal; color: var(--muted); font-size: .74rem; margin-left: 4px; }
+.cargo-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: .74rem; color: var(--muted); margin-top: 3px; }
+.cargo-addr { font-size: .78rem; margin-top: 3px; overflow-wrap: anywhere; }
+/* App.vue .tag */
+.cargo-type {
+  background: var(--line); border: none; border-radius: 4px;
+  padding: 2px 6px; color: var(--fg); font-weight: 700; font-size: 11px;
+}
+
+/* 상차 계획 */
+.plan { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.plan-head { display: flex; justify-content: space-between; align-items: baseline; font-size: .9rem; font-weight: 600; }
+.plan-gain { color: var(--ok); }
+.plan-stop { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.plan-stop-head { display: flex; justify-content: space-between; gap: 10px; font-size: .88rem; }
+.plan-stop-head span { color: var(--ok); white-space: nowrap; }
+.plan-addr { font-size: .78rem; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+.plan-figures { display: flex; gap: 10px; flex-wrap: wrap; font-size: .76rem; color: var(--muted); margin-top: 5px; }
+
+/* 대기 운송장 수익 요약 */
+.card.earn { border-color: var(--accent); }
+.earn-lead { font-size: .85rem; color: var(--muted); margin: 0; }
+.earn-amount { font-size: 1.9rem; font-weight: 800; color: var(--accent-ink); margin: 4px 0 0; letter-spacing: -.02em; }
+.earn-amount span { font-size: 1rem; font-weight: 600; margin-left: 2px; }
+.earn-sub { font-size: .75rem; color: var(--muted); margin: 6px 0 0; }
+.earn-inline { color: var(--accent-ink); }
+.cargo-freight { font-size: .74rem; color: var(--muted); margin-right: 6px; }
+.earn-note { font-size: .72rem; color: var(--muted); margin: 4px 0 0; }
+.earn-amount span { font-size: .95rem; }
+
+/* 차량 선택 + 매칭 갱신 */
+.spec-box { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.spec-line { font-size: .82rem; color: var(--fg); margin: 3px 0; }
+.spec-line.muted, .spec-line .muted { color: var(--muted); }
+.spec-line.warn { color: var(--warn); }
+.btn.block { display: block; width: 100%; margin-top: 12px; padding: 12px; font-size: .95rem; }
+
+/* 출발-도착 터미널 묶음 */
+.group-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.group-item { margin-top: 10px; padding: 11px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.group-route { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; font-size: .9rem; }
+.group-arrow { color: var(--muted); }
+.group-codes { font-size: .74rem; margin-top: 2px; }
+.group-counts { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; font-size: .82rem; }
+.group-count-main { color: var(--accent-ink); font-weight: 700; }
+.group-boxtypes { font-size: .78rem; margin-top: 4px; overflow-wrap: anywhere; }
+.group-metrics { font-size: .74rem; margin-top: 4px; }
+.muted { color: var(--muted); }
+
+/* 적재율 — 빈 차(0%)에서 얼마나 차는지가 이 화면의 핵심 숫자다 */
+.fill { margin: 4px 0 14px; --fill-color: hsl(var(--fill-hue, 210) 78% 52%); }
+.fill-head { display: flex; justify-content: space-between; align-items: baseline; }
+.fill-label { font-size: .82rem; color: var(--muted); }
+.fill-pct { font-size: .95rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fill-pct b { font-size: 1.5rem; color: var(--fill-color, var(--accent-ink)); letter-spacing: -.02em; }
+.fill-arrow { margin: 0 2px; }
+.fill-bar { position: relative; height: 10px; margin-top: 7px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.fill-bar-value { display: block; height: 100%; background: var(--fill-color, var(--accent)); border-radius: 999px; transition: width .35s ease, background .35s ease; }
+.fill-sub { font-size: .78rem; color: var(--muted); margin: 7px 0 0; }
+
+/* 적재 예정 물량 그림 — 실제 적재함 치수로 만든 등각 3D */
+.cargo-fill { margin: 12px 0 4px; --fill-color: hsl(var(--fill-hue, 210) 78% 52%); }
+.cf-svg { width: 100%; height: auto; display: block; }
+
+/* 적재함. 뒤쪽 면은 옅게, 앞쪽 면은 반투명이라 상자가 비쳐 보인다 */
+.cf-wall.far { fill: var(--bg); stroke: var(--line); stroke-width: 1; }
+.cf-wall.near { fill: var(--fill-color); opacity: .07; stroke: var(--fill-color); stroke-width: 1; }
+.cf-wall.roof { fill: var(--fill-color); opacity: .05; stroke: var(--fill-color); stroke-width: 1; }
+.cf-floor { fill: var(--line); opacity: .35; stroke: none; }
+.cf-frame { fill: none; stroke: var(--fill-color); stroke-width: 1.3; opacity: .55; }
+.cf-door { fill: var(--fill-color); opacity: .1; stroke: var(--fill-color); stroke-width: 1.1; }
+
+/* 차대·캡·바퀴 — 와이어프레임 */
+.cf-truck { fill: none; stroke: var(--line); stroke-width: 1.4; }
+.cf-truck .cf-cab { fill: var(--bg); stroke: var(--line); stroke-width: 1.4; }
+.cf-truck .cf-wheel { fill: var(--muted); stroke: none; opacity: .45; }
+
+/* 상자 — 위/오른쪽/왼쪽 면 밝기를 달리해 입체로 읽히게 한다 */
+.cf-cube .cf-top { fill: var(--fill-color); opacity: 1; stroke: #fff; stroke-width: .45; }
+.cf-cube .cf-right { fill: var(--fill-color); opacity: .74; stroke: #fff; stroke-width: .45; }
+.cf-cube .cf-left { fill: var(--fill-color); opacity: .52; stroke: #fff; stroke-width: .45; }
+
+.cf-caption { font-size: .78rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; }
+.cf-note { opacity: .8; }
+
+/* 주소 검색 후보 */
+.loc-results { list-style: none; margin: 10px 0 0; padding: 0; }
+.loc-results li { border-top: 1px solid var(--line); }
+.btn.block-left { display: block; width: 100%; text-align: left; padding: 8px 0; font-size: .82rem; }
+
+/* 기준 위치 변경 */
+.loc-edit { margin-top: 10px; }
+.loc-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.group-km { margin-left: auto; font-size: .78rem; color: var(--accent-ink); font-weight: 700; white-space: nowrap; }
+
+/* XAI — 결과가 어떻게 나왔는지 */
+.card.xai { border-color: var(--accent); }
+.xai-lead { font-size: .85rem; line-height: 1.6; margin: 8px 0 0; }
+.xai-steps { list-style: none; margin: 14px 0 0; padding: 0; counter-reset: xai; }
+.xai-steps li { margin-top: 12px; padding-left: 12px; border-left: 2px solid var(--accent); }
+.xai-step-title { font-size: .85rem; font-weight: 600; margin: 0; }
+.xai-step-body { font-size: .82rem; line-height: 1.6; margin: 4px 0 0; }
+.xai-step-note { font-size: .76rem; color: var(--muted); margin: 4px 0 0; line-height: 1.5; }
+.xai-table { margin-top: 14px; }
+.xai-caveat { font-size: .76rem; color: var(--muted); margin: 12px 0 0; line-height: 1.55; }
+
+/* XAI 단계별 계산 방식 라벨 */
+.xai-lead-sub { font-size: .8rem; color: var(--muted); margin: 6px 0 0; line-height: 1.55; }
+.xai-step-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.xai-kind { font-size: .68rem; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-weight: 500; white-space: nowrap; }
+/* XAI 카드 안쪽도 같은 노랑으로 맞춘다. 카드 테두리만 노랑이고 내부 표식이 파랑이면
+   한 카드 안에서 강조색이 둘로 갈린다. */
+.xai-steps li.kind-ai { border-left-color: var(--accent); border-left-width: 3px; }
+.xai-steps li.kind-ai .xai-kind { border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.xai-steps li.kind-stat { border-left-color: var(--muted); }
+.xai-steps li.kind-off { border-left-color: var(--line); opacity: .8; }
+.xai-inline { display: inline-block; margin: 6px 0; padding: 7px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: .78rem; line-height: 1.7; }
+
+/* 적재율이 100%를 넘을 때 */
+.fill-over { color: hsl(0 78% 45%); }
+.fill-over-note { font-size: .78rem; color: hsl(0 78% 42%); margin: 6px 0 0; line-height: 1.5; }
+.text-input.multi { height: auto; padding: 6px; }
+
+/* 대기 운송장 페이지 넘김 */
+.pager { margin-top: 10px; }
+.pager-controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.pager-page { font-size: .82rem; color: var(--muted); padding: 0 4px; font-variant-numeric: tabular-nums; }
+.text-input.compact { width: auto; padding: 5px 8px; font-size: .82rem; }
+
+/* 검색해서 여러 개 고르는 콤보 */
+.ms { position: relative; }
+.ms-count { color: var(--accent-ink); font-weight: 600; }
+.ms-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+.ms-caret { color: var(--muted); font-size: .75rem; }
+.ms-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; padding: 0; }
+.ms-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; font-size: .74rem; border: 1px solid var(--accent); color: var(--accent-ink); background: transparent; border-radius: 999px; cursor: pointer; }
+.ms-chip-x { opacity: .7; font-size: .68rem; }
+.ms-panel { position: absolute; z-index: 20; left: 0; right: 0; margin-top: 4px; background: var(--card, #fff); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 8px; }
+.ms-search { width: 100%; }
+.ms-actions { display: flex; justify-content: space-between; align-items: center; font-size: .74rem; margin: 6px 2px 4px; }
+.ms-list { list-style: none; margin: 0; padding: 0; max-height: 230px; overflow-y: auto; }
+.ms-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 6px; background: none; border: none; border-radius: 6px; cursor: pointer; font-size: .82rem; text-align: left; }
+.ms-item:hover { background: var(--bg); }
+.ms-item.on { background: var(--bg); color: var(--accent-ink); font-weight: 600; }
+.ms-check { font-size: .95rem; line-height: 1; }
+.ms-code { font-variant-numeric: tabular-nums; min-width: 34px; }
+.ms-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-empty { padding: 10px 6px; font-size: .8rem; color: var(--muted); }
+
+/* 체크박스 한 줄 */
+.checkline { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 4px; font-size: .84rem; cursor: pointer; }
+.checkline input { margin-top: 2px; flex-shrink: 0; }
+
+/* 접었다 펼치는 상세 목록 */
+.accordion { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 2px; background: none; border: none; cursor: pointer; font-size: .88rem; text-align: left; }
+.accordion-caret { color: var(--muted); width: 12px; }
+.accordion-title { font-weight: 600; flex: 1; }
+.cargo-list[hidden] { display: none; }
+
+/* CBM 도움말 */
+.card.help { border-style: dashed; }
+.help-body { font-size: .84rem; line-height: 1.7; }
+.help-body p { margin: 10px 0; }
+.help-formula { padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; text-align: center; font-weight: 600; font-size: .9rem; }
+.help-note { margin: 12px 0; padding: 10px 12px; background: var(--bg); border-left: 3px solid var(--accent); border-radius: 4px; font-size: .82rem; line-height: 1.65; }
+.help-lead { font-weight: 600; margin-top: 14px !important; }
+.help-list { margin: 6px 0 0; padding-left: 18px; }
+.help-list li { margin: 4px 0; }
+
+/* 계산 진행 표시 — App.vue의 .progress-track / .progress-fill과 같은 노랑→파랑 그라데이션. */
+.run-progress { margin-top: 8px; }
+.run-bar { height: 6px; background: var(--line); border: none; border-radius: 6px; overflow: hidden; }
+.run-bar-value {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--kakao-yellow), var(--accent-ink));
+  transition: width 1s linear;
+}

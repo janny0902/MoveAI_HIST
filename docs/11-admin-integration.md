@@ -1,8 +1,8 @@
 # 11 — 관리자 화면 통합
 
-파일: `frontend-admin/` (React SPA), `nginx/default.conf`, `docker-compose.yml`.
+파일: `frontend-admin/` (**Vue 3 SPA**), 게이트웨이(`frontend/nginx.conf`), `docker-compose.yml`.
 
-원래 별도 저장소의 Cloud Run 화면을 `/admin`으로 합쳤다.  
+원래 React Cloud Run 화면을 Vue로 맞춰 `/admin`에 붙였다.  
 역할은 **「이 차에 얼마나 실리나」용량 시뮬**이다. 기사 앱의 위치·20km 복화 배차와는 분리한다.
 
 ---
@@ -34,7 +34,7 @@ compose에 관리자 백엔드가 없는 이유다. 소스는 이 저장소에 �
 | 경로 | 역할 | 배포 |
 |------|------|------|
 | `frontend/` | Vue, 기사 화면 | compose |
-| `frontend-admin/` | React, 관리자 화면 | compose |
+| `frontend-admin/` | Vue3, 관리자 화면 | compose |
 | `backend-spring/` | 도메인 API | compose |
 | `backend-ai/` | 공간 AI + Gemini | compose |
 | `vision-processor/` | 차량 제원·지오코딩 | **Cloud Run** |

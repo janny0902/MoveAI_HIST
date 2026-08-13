@@ -24,3 +24,9 @@ spring:
 moveai:
   ai-base-url: ${AI_BASE_URL:http://backend-ai:8000}
   kakao-rest-key: ${KAKAO_REST_KEY:}
+
+admin:
+  matching:
+    base-url: ${ADMIN_MATCHING_BASE_URL:https://matching-processor-xi6ooeq3ta-du.a.run.app}
+  vision:
+    base-url: ${ADMIN_VISION_BASE_URL:https://vision-processor-xi6ooeq3ta-du.a.run.app}
