@@ -17,33 +17,56 @@ app.add_middleware(
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "moveai-504907")
 LOCATION = os.getenv("GCP_LOCATION", "us-central1")
 
-def _adc_status() -> dict:
-    """GOOGLE_APPLICATION_CREDENTIALS가 파일인지 검사 (디렉터리 마운트 사고 감지)."""
-    import os as _os
-    p = _os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or ""
+
+def _sanitize_adc_env() -> dict:
+    """
+    Docker가 없는 호스트 경로를 마운트하면 대상이 '디렉터리'로 생성된다.
+    그 경우 GOOGLE_APPLICATION_CREDENTIALS를 제거해 GCE 메타데이터/ADC 체인으로 넘긴다.
+    """
+    p = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or ""
     if not p:
-        return {"ok": False, "path": "", "error": "GOOGLE_APPLICATION_CREDENTIALS 미설정"}
-    if _os.path.isdir(p):
+        return {"ok": True, "path": "", "mode": "metadata-or-adc-chain", "error": None}
+    if os.path.isdir(p):
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
         return {
-            "ok": False,
+            "ok": True,
             "path": p,
-            "error": "인증 경로가 디렉터리입니다. 호스트 ADC JSON 파일 마운트를 확인하세요.",
+            "mode": "cleared-isdir-use-metadata",
+            "error": f"ADC가 디렉터리였음 → env 제거 후 메타데이터 사용 ({p})",
         }
-    if not _os.path.isfile(p):
-        return {"ok": False, "path": p, "error": "인증 파일이 없습니다."}
-    return {"ok": True, "path": p, "error": None}
+    if not os.path.isfile(p):
+        os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+        return {
+            "ok": True,
+            "path": p,
+            "mode": "cleared-missing-use-metadata",
+            "error": f"ADC 파일 없음 → env 제거 후 메타데이터 사용 ({p})",
+        }
+    return {"ok": True, "path": p, "mode": "file", "error": None}
+
+
+def _adc_status() -> dict:
+    p = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or ""
+    if not p:
+        return {"ok": True, "path": "", "error": None, "mode": "metadata-or-adc-chain"}
+    if os.path.isdir(p):
+        return {"ok": False, "path": p, "error": "인증 경로가 디렉터리입니다.", "mode": "isdir"}
+    if not os.path.isfile(p):
+        return {"ok": False, "path": p, "error": "인증 파일이 없습니다.", "mode": "missing"}
+    return {"ok": True, "path": p, "error": None, "mode": "file"}
+
 
 gemini_model = None
-_adc = _adc_status()
+_adc = _sanitize_adc_env()
+if _adc.get("error"):
+    print(f"ADC sanitize: {_adc['error']}")
 try:
-    if not _adc["ok"]:
-        raise RuntimeError(_adc["error"])
     import vertexai
     from vertexai.generative_models import GenerativeModel
 
     vertexai.init(project=PROJECT_ID, location=LOCATION)
     gemini_model = GenerativeModel("gemini-2.5-flash")
-    print("Vertex AI Gemini 초기화 성공")
+    print(f"Vertex AI Gemini 초기화 성공 (adc_mode={_adc.get('mode')})")
 except Exception as e:
     print(f"Vertex AI 초기화 대기 (키/권한 필요): {e}")
     gemini_model = None
@@ -187,13 +210,30 @@ async def optimal_dispatch(data: dict):
 후보(JSON):
 {json.dumps(slim, ensure_ascii=False)}
 
-목표: 순이익을 최대화하고, 추가거리(extraDistanceKm)·추가시간(extraMinutes)을 최소화하는 requestId 순서를 고르세요.
-잔여공간(fillPercentOf11t 합)을 넘기지 마세요. 최대 5개.
-반드시 JSON만 출력:
-{{"rankedRequestIds":[숫자,...],"briefing":"기사에게 보여줄 한국어 2문장"}}
+목표: 순이익↑, 추가거리·추가시간↓. 잔여공간(fillPercentOf11t 합) 초과 금지. 최대 5개.
+JSON만: {{"rankedRequestIds":[숫자,...],"briefing":"한국어 2문장"}}
 """
+    import time as _time
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
+    t0 = _time.time()
+    # 시연 UX: Gemini가 오래 걸리면 휴리스틱으로 빨리 응답 (쿼터 이슈와 별개)
+    llm_timeout_sec = float(__import__("os").getenv("OPTIMAL_LLM_TIMEOUT_SEC", "12"))
     try:
-        response = gemini_model.generate_content(prompt)
+        from vertexai.generative_models import GenerationConfig
+
+        def _call():
+            return gemini_model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(
+                    temperature=0.1,
+                    max_output_tokens=256,
+                    response_mime_type="application/json",
+                ),
+            )
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            response = pool.submit(_call).result(timeout=llm_timeout_sec)
         text = (response.text or "").strip()
         # ```json ... ``` 제거
         text = re.sub(r"^```(?:json)?\s*", "", text)
@@ -206,14 +246,29 @@ async def optimal_dispatch(data: dict):
             "rankedRequestIds": ids,
             "briefing": briefing,
             "source": "gemini",
+            "durationMs": int((_time.time() - t0) * 1000),
+        }
+    except FuturesTimeout:
+        return {
+            "ranked_request_ids": heuristic_ids,
+            "rankedRequestIds": heuristic_ids,
+            "briefing": fallback_brief + " (응답 지연으로 빠른 추천)",
+            "source": "fallback-timeout",
+            "error": f"gemini timeout>{llm_timeout_sec}s",
+            "quotaLimited": False,
+            "durationMs": int((_time.time() - t0) * 1000),
         }
     except Exception as e:
+        msg = str(e)
+        quota = any(k in msg for k in ("429", "RESOURCE_EXHAUSTED", "Resource exhausted", "quota"))
         return {
             "ranked_request_ids": heuristic_ids,
             "rankedRequestIds": heuristic_ids,
             "briefing": fallback_brief,
-            "source": "fallback",
-            "error": str(e),
+            "source": "fallback-quota" if quota else "fallback",
+            "error": msg,
+            "quotaLimited": quota,
+            "durationMs": int((_time.time() - t0) * 1000),
         }
 
 

@@ -34,16 +34,19 @@ public class OptimalDispatchService {
     private String aiBaseUrl;
 
     public Map<String, Object> buildPlan(Truck truck) {
+        long t0 = System.currentTimeMillis();
         double rem = truck.getRemainingVolumePercent() != null ? truck.getRemainingVolumePercent() : 100.0;
         List<CargoOdGroup> pending = pendingGroups();
-        // 행렬 기반 증분(캐시 miss만 카카오) — 페이지 합쳐 LLM 후보 풀
+        // 행렬 기반 증분(캐시 miss만 카카오) — 후보 10건이면 조기 종료 (카카오 leg 호출 폭주 방지)
         OdDetourService.PageResult scored = odDetourService.pageForTruck(truck, pending, 0, rem, null, true);
         List<OdDetourService.Candidate> pool = new ArrayList<>(scored.pageItems());
-        for (int p = 1; p < 4 && scored.hasMore(); p++) {
+        for (int p = 1; p < 2 && scored.hasMore() && pool.size() < 10; p++) {
             OdDetourService.PageResult more = odDetourService.pageForTruck(truck, pending, p, rem, null, true);
             pool.addAll(more.pageItems());
+            scored = more;
             if (!more.hasMore()) break;
         }
+        long detourMs = System.currentTimeMillis() - t0;
 
         List<Map<String, Object>> candidates = new ArrayList<>();
         for (OdDetourService.Candidate c : pool) {
@@ -82,7 +85,9 @@ public class OptimalDispatchService {
         }
         candidates.sort(Comparator.comparingDouble(a -> -((Number) a.get("heuristicScore")).doubleValue()));
 
+        long tLlm = System.currentTimeMillis();
         Map<String, Object> llm = callLlm(truck, candidates);
+        long llmMs = System.currentTimeMillis() - tLlm;
         @SuppressWarnings("unchecked")
         List<Number> rankedIds = llm.get("rankedRequestIds") instanceof List<?>
                 ? (List<Number>) llm.get("rankedRequestIds")
@@ -149,6 +154,15 @@ public class OptimalDispatchService {
         ));
         out.put("briefing", llm.getOrDefault("briefing", "수익·거리·시간을 균형 잡은 복화 조합입니다."));
         out.put("llmSource", llm.getOrDefault("source", "heuristic"));
+        if (llm.get("llmError") != null) out.put("llmError", llm.get("llmError"));
+        out.put("timingMs", Map.of(
+                "detour", detourMs,
+                "llm", llmMs,
+                "total", System.currentTimeMillis() - t0
+        ));
+        log.info("optimal-plan truck={} candidates={} source={} detourMs={} llmMs={} totalMs={}",
+                truck.getId(), candidates.size(), out.get("llmSource"), detourMs, llmMs,
+                System.currentTimeMillis() - t0);
         return out;
     }
 
@@ -207,11 +221,20 @@ public class OptimalDispatchService {
             if (data.get("rankedRequestIds") == null) {
                 data.put("rankedRequestIds", fallback.get("rankedRequestIds"));
             }
-            data.putIfAbsent("source", "gemini");
+            if (Boolean.TRUE.equals(data.get("quotaLimited"))) {
+                data.put("source", "fallback-quota");
+            } else {
+                data.putIfAbsent("source", "gemini");
+            }
+            if (data.get("error") != null) data.put("llmError", data.get("error"));
             return data;
         } catch (Exception e) {
             log.warn("optimal LLM failed: {}", e.toString());
-            fallback.put("llmError", e.getMessage());
+            String msg = e.getMessage() != null ? e.getMessage() : e.toString();
+            boolean quota = msg.contains("429") || msg.toLowerCase().contains("resource exhausted")
+                    || msg.toLowerCase().contains("quota");
+            fallback.put("llmError", msg);
+            fallback.put("source", quota ? "fallback-quota" : "fallback");
             return fallback;
         }
     }

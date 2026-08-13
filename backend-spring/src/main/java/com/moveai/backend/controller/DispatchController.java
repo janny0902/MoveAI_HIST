@@ -1135,6 +1135,26 @@ public class DispatchController {
                 row.put("originCode", code);
                 row.put("destination", g.getDestinationTerminalName() != null ? g.getDestinationTerminalName() : drop);
                 row.put("destinationCode", drop);
+                int fee = g.getFreightKrw() != null ? g.getFreightKrw() : 0;
+                row.put("proposedFee", fee);
+                try {
+                    OdDetourService.Candidate det = odDetourService.estimateOne(truck, g);
+                    double extra = det.roadExtraKm() != null ? det.roadExtraKm() : 0;
+                    double extraMin = det.extraMinutes() != null
+                            ? det.extraMinutes()
+                            : Math.round(extra);
+                    int fuel = calculationService.calculateExtraFuelCost(extra);
+                    row.put("extraDistanceKm", Math.round(extra * 10.0) / 10.0);
+                    row.put("extraMinutes", Math.round(extraMin));
+                    row.put("extraFuelCost", fuel);
+                    row.put("netProfit", fee - fuel);
+                    row.put("distanceSource", det.distanceSource());
+                } catch (Exception e) {
+                    row.put("extraDistanceKm", 0);
+                    row.put("extraMinutes", 0);
+                    row.put("extraFuelCost", 0);
+                    row.put("netProfit", fee);
+                }
                 byOrigin.put(code, row);
             }
         }

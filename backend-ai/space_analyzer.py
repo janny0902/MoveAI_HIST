@@ -425,6 +425,13 @@ def analyze_occupancy_with_gemini(
         return data
 
     try:
+        # Docker가 ADC를 디렉터리로 마운트한 경우 env를 비워 GCE 메타데이터 사용
+        _cred = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or ""
+        if _cred and (os.path.isdir(_cred) or not os.path.isfile(_cred)):
+            logs.append(
+                f"[vision] ADC 경로 무효({_cred}) → GOOGLE_APPLICATION_CREDENTIALS 제거 후 메타데이터 사용"
+            )
+            os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
         vertexai.init(project=PROJECT_ID, location=LOCATION)
         model = GenerativeModel(GEMINI_MODEL_NAME)
         last_err: Exception | None = None

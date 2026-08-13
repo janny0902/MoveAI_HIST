@@ -21,7 +21,18 @@
     <div v-if="simOffer" class="toast toast-offer shadow" @click.stop>
       <strong>새 복화 물량</strong>
       <p>{{ simOffer.name || simOffer.code }}에 {{ Number(simOffer.fillPercent || 0).toFixed(1) }}% 물량을 적재할 수 있습니다.</p>
-      <p class="toast-rem">계획 잔여 {{ simRemainingPercent().toFixed(1) }}%</p>
+      <p class="toast-metrics">
+        <span v-if="simOffer.extraDistanceKm != null">우회 +{{ Number(simOffer.extraDistanceKm).toFixed(1) }}km</span>
+        <span v-if="simOffer.extraMinutes != null">· +{{ Math.round(Number(simOffer.extraMinutes) || 0) }}분</span>
+        <span class="plus" v-if="simOffer.netProfit != null || simOffer.proposedFee != null">
+          · {{ formatWon(simOffer.netProfit != null ? simOffer.netProfit : simOffer.proposedFee) }}
+        </span>
+      </p>
+      <p class="toast-rem">
+        {{ simOffer.origin || simOffer.name || simOffer.code }}
+        <template v-if="simOffer.destination"> → {{ simOffer.destination }}</template>
+        · 계획 잔여 {{ simRemainingPercent().toFixed(1) }}%
+      </p>
       <div class="toast-actions">
         <button type="button" class="k-btn outline sm" :disabled="busy.show" @click.stop="rejectSimOffer">거절</button>
         <button type="button" class="k-btn primary sm" :disabled="busy.show" @click.stop="acceptSimOffer">수락</button>
@@ -466,7 +477,7 @@
             <div class="ledger-grid" v-if="ledger">
               <div class="item"><label>합계 수입</label><p class="val plus">{{ formatWon(ledger.totalIncome) }}</p></div>
               <div class="item"><label>합계 지출</label><p class="val">{{ formatWon(ledger.totalExpense) }}</p></div>
-              <div class="item"><label>순수익</label><p class="val plus">{{ formatWon(ledger.netProfit) }}</p></div>
+              <div class="item"><label>매출</label><p class="val plus">{{ formatWon(ledger.netProfit) }}</p></div>
               <div class="item"><label>ESG</label><p class="val esg">{{ ledger.dailyEsgKg }}kg</p></div>
             </div>
 
@@ -492,7 +503,7 @@
                 <div class="amt">
                   <span class="plus">운임 +{{ formatWon(e.income) }}</span>
                   <span class="minus">유류 {{ formatWon(e.expense) }}</span>
-                  <span class="net">순 {{ formatWon(e.netProfit) }}</span>
+                  <span class="net">매출 {{ formatWon(e.netProfit) }}</span>
                 </div>
               </article>
             </div>
@@ -512,7 +523,7 @@
       </main>
 
       <nav class="k-bottom-nav shadow">
-        <div class="nav-item" :class="{ active: tab === 'cargo' }" @click="tab = 'cargo'; nextTick(() => initCargoMap())">
+        <div class="nav-item" :class="{ active: tab === 'cargo' }" @click="tab = 'cargo'; scheduleCargoMapInit({ force: true, delayMs: 80 })">
           <span class="label">배차목록</span>
         </div>
         <div class="nav-item" :class="{ active: tab === 'drive' }" @click="goDrive">
@@ -1506,6 +1517,26 @@ function relayoutCargoMap() {
   try { cargoMapInstance.value?.relayout() } catch (_) {}
 }
 
+function destroyCargoMap() {
+  clearCargoMapMarkers()
+  try {
+    // 카카오 Map은 DOM이 사라지면 재사용 불가 — 인스턴스만 비운다
+    cargoMapInstance.value = null
+  } catch (_) { /* ignore */ }
+  cargoMapLoaded.value = false
+  cargoMapFitted.value = false
+  cargoMapMessage.value = '지도 준비'
+}
+
+function scheduleCargoMapInit({ force = false, delayMs = 80 } = {}) {
+  nextTick(() => {
+    setTimeout(() => {
+      if (gate.value !== 'app' || tab.value !== 'cargo') return
+      initCargoMap({ force })
+    }, delayMs)
+  })
+}
+
 function applyMe(data) {
   me.value = data
   remaining.value = Number(data.remainingVolumePercent ?? 100)
@@ -1535,13 +1566,15 @@ function shortRouteLabel(label, max = 72) {
 function resolveGate(data) {
   if (data.needProfile) gate.value = 'profile'
   else if (data.needRoute) {
+    destroyCargoMap()
     gate.value = 'route'
     loadTerminals({ force: true })
   } else {
     gate.value = 'app'
+    // 로그인/출도착 저장 직후 DOM이 다시 붙으므로 지도는 강제 재생성
+    scheduleCargoMapInit({ force: true, delayMs: 120 })
     nextTick(() => {
-      if (tab.value === 'drive') mountDriveMap()
-      if (tab.value === 'cargo') initCargoMap()
+      if (tab.value === 'drive') mountDriveMap({ remount: true })
     })
   }
 }
@@ -1596,11 +1629,18 @@ async function doRoute() {
     applyMe(data)
     addLogs(data.message)
     feedPage.value = 0
+    selectedTerminal.value = null
+    cargoItems.value = []
+    optimalPlan.value = null
+    destroyCargoMap()
+    tab.value = 'cargo'
     resolveGate(data)
   } catch (e) {
     alert(e.response?.data?.message || e.message)
   } finally {
     endBusy()
+    // busy 오버레이가 사라진 뒤 레이아웃이 잡히면 다시 한 번 강제 렌더
+    scheduleCargoMapInit({ force: true, delayMs: 200 })
   }
 }
 
@@ -1705,7 +1745,7 @@ function setDispatchMode(mode) {
   dispatchMode.value = mode
   optimalPlan.value = null
   if (mode === 'manual') {
-    nextTick(() => initCargoMap())
+    scheduleCargoMapInit({ force: false, delayMs: 60 })
   }
 }
 
@@ -1816,44 +1856,64 @@ function highlightCargoTerminals({ fitBounds = false } = {}) {
   if (cartPreview.value) drawCartRouteOnCargoMap(cartPreview.value)
 }
 
-function initCargoMap() {
-  if (tab.value !== 'cargo' || !cargoMapEl.value) return
+function initCargoMap({ force = false } = {}) {
+  if (gate.value !== 'app' || tab.value !== 'cargo') return
+  if (!cargoMapEl.value) {
+    // DOM이 아직 없으면 한 번 더 대기
+    scheduleCargoMapInit({ force, delayMs: 160 })
+    return
+  }
+  const el = cargoMapEl.value
+  // 숨김/0크기 컨테이너에 붙이면 타일이 안 그려짐 → 레이아웃 후 재시도
+  if (el.clientWidth < 40 || el.clientHeight < 40) {
+    scheduleCargoMapInit({ force: true, delayMs: 180 })
+    return
+  }
   cargoMapMessage.value = '지도 로딩...'
   loadKakaoScript()
     .then(() => new Promise((resolve) => window.kakao.maps.load(() => resolve())))
     .then(async () => {
       await nextTick()
-      if (!cargoMapEl.value || tab.value !== 'cargo') return
+      if (gate.value !== 'app' || tab.value !== 'cargo' || !cargoMapEl.value) return
       await loadCargoTerminals()
-      if (cargoMapInstance.value) {
-        cargoMapLoaded.value = true
-        highlightCargoTerminals({ fitBounds: false })
-        try { cargoMapInstance.value.relayout() } catch (_) {}
-        return
+      if (force || !cargoMapInstance.value) {
+        clearCargoMapMarkers()
+        cargoMapInstance.value = null
+        cargoMapFitted.value = false
+        const o = stationByCode(me.value?.originCode)
+          || cargoTerminals.value[0]
+          || { lat: 35.1362, lng: 128.83 }
+        cargoMapInstance.value = new window.kakao.maps.Map(cargoMapEl.value, {
+          center: new window.kakao.maps.LatLng(Number(o.lat) || 35.1362, Number(o.lng) || 128.83),
+          level: 9,
+        })
       }
-      const o = cargoTerminals.value[0]
-        || stationByCode(me.value?.originCode)
-        || { lat: 35.1362, lng: 128.83 }
-      cargoMapInstance.value = new window.kakao.maps.Map(cargoMapEl.value, {
-        center: new window.kakao.maps.LatLng(o.lat || 35.1362, o.lng || 128.83),
-        level: 9,
-      })
       cargoMapLoaded.value = true
       cargoMapMessage.value = cargoTerminals.value.length
         ? '터미널 코드를 선택하세요'
         : '물량 터미널 없음'
-      cargoMapFitted.value = false
-      highlightCargoTerminals({ fitBounds: true })
-      setTimeout(() => { try { cargoMapInstance.value.relayout() } catch (_) {} }, 100)
+      highlightCargoTerminals({ fitBounds: force || !cargoMapFitted.value })
+      const map = cargoMapInstance.value
+      const relayoutTwice = () => {
+        try { map?.relayout() } catch (_) {}
+        try {
+          const c = map?.getCenter?.()
+          if (c) map.setCenter(c)
+        } catch (_) {}
+      }
+      relayoutTwice()
+      setTimeout(relayoutTwice, 120)
+      setTimeout(relayoutTwice, 320)
     })
     .catch((err) => {
       cargoMapMessage.value = '지도 실패: ' + (err.message || err)
+      cargoMapLoaded.value = false
     })
 }
 
 async function runOptimalPlan() {
   if (!me.value?.truckId) return
-  startBusy('최적 배차', 'LLM이 수익·거리·시간을 계산 중...')
+  startBusy('최적 배차', '우회 거리·LLM 순위 계산 중...')
   try {
     const { data } = await axios.post('/api/dispatch/optimal-plan', { truckId: me.value.truckId })
     const recommended = sortItemsAlongDriver(data.recommended || [])
@@ -1866,6 +1926,14 @@ async function runOptimalPlan() {
     cargoItems.value = []
     addLogs(data.briefing || '최적 배차 플랜 생성')
     if (data.summary?.routeHint) addLogs('경로: ' + data.summary.routeHint)
+    const t = data.timingMs || {}
+    addLogs(
+      `최적배차 출처=${data.llmSource || '-'} · 우회 ${t.detour ?? '-'}ms · LLM ${t.llm ?? '-'}ms · 합계 ${t.total ?? '-'}ms`
+      + (data.llmError ? ` · 오류: ${String(data.llmError).slice(0, 120)}` : '')
+    )
+    if (String(data.llmSource || '').includes('quota')) {
+      addLogs('Gemini 쿼터/429로 휴리스틱 폴백 — 지연 원인이 쿼터일 수 있음')
+    }
     toast.value = `추천 ${data.requestIds?.length || 0}건 · ${formatWon(data.summary?.totalNetProfit)}`
     setTimeout(() => { toast.value = null }, 4000)
   } catch (e) {
@@ -2386,10 +2454,18 @@ async function acceptSimOffer() {
     addLogs(`인근 복화 수락: ${offer.name || offer.code} ${need.toFixed(1)}%`
       + (inserted ? ' · 도착 앞 경유' : '')
       + ` · 계획 ${plannedOccupied.value}% 잔여 ${simRemainingPercent()}%`)
+    const extraKm = offer.extraDistanceKm != null ? Number(offer.extraDistanceKm) : null
+    const extraMin = offer.extraMinutes != null ? Math.round(Number(offer.extraMinutes)) : null
+    const won = offer.netProfit != null ? offer.netProfit : offer.proposedFee
+    const metricBits = [
+      extraKm != null && Number.isFinite(extraKm) ? `우회 +${extraKm.toFixed(1)}km` : null,
+      extraMin != null && Number.isFinite(extraMin) ? `+${extraMin}분` : null,
+      won != null ? formatWon(won) : null,
+    ].filter(Boolean).join(' · ')
     toast.value = inserted
-      ? `${offer.name || offer.code} 수락 · 도착 전 경유 추가`
-      : `${offer.name || offer.code} 물량 수락`
-    setTimeout(() => { toast.value = null }, 3000)
+      ? `${offer.name || offer.code} 수락 · 경유 추가${metricBits ? ' · ' + metricBits : ''}`
+      : `${offer.name || offer.code} 수락${metricBits ? ' · ' + metricBits : ''}`
+    setTimeout(() => { toast.value = null }, 4500)
     const st = await axios.get(`/api/drivers/${me.value.truckId}`)
     applyMe(st.data)
     await restitchTripRoute()
@@ -3190,14 +3266,22 @@ function bindMapResize() {
 }
 
 watch(gate, (g) => {
-  if (g === 'route') loadTerminals({ force: !stations.value.length })
-  if (g === 'app') startDemoPolling()
-  else stopDemoPolling()
+  if (g === 'route') {
+    destroyCargoMap()
+    loadTerminals({ force: !stations.value.length })
+  }
+  if (g === 'app') {
+    startDemoPolling()
+    scheduleCargoMapInit({ force: true, delayMs: 120 })
+  } else {
+    stopDemoPolling()
+    if (g !== 'app') destroyCargoMap()
+  }
 })
 
 watch(tab, (t) => {
   if (t === 'drive') nextTick(() => { mountDriveMap({ remount: true }) })
-  if (t === 'cargo') nextTick(() => initCargoMap())
+  if (t === 'cargo') scheduleCargoMapInit({ force: true, delayMs: 80 })
 })
 
 watch(cartDockOpen, async () => {
@@ -4061,7 +4145,9 @@ body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif; 
 .toast strong { color: var(--kakao-yellow); font-size: 12px; }
 .toast p { margin: 4px 0 0; font-size: 13px; }
 .toast-offer { cursor: default; }
-.toast-rem { margin: 6px 0 0; font-size: 12px; color: #666; }
+.toast-metrics { margin: 6px 0 0; font-size: 12px; color: #ddd; }
+.toast-metrics .plus { color: var(--kakao-yellow); font-weight: 700; }
+.toast-rem { margin: 6px 0 0; font-size: 12px; color: #999; }
 .toast-actions { margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px; }
 .toast-actions .k-btn { min-width: 72px; }
 </style>

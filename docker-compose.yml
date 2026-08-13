@@ -77,11 +77,11 @@ services:
       - TRUCK_CAPACITY_M3=30.545
       - SPACE_OCCUPANCY_ENGINE=gemini-only
       - GEMINI_MODEL=gemini-2.5-flash
-      # 파일 마운트 대상은 /secrets/adc.json (디렉터리로 잘못 생성된 옛 경로 회피)
-      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/adc.json
+      # GCP VM: 비워 두면 GCE 메타데이터 서비스 계정 사용 (권장).
+      # 잘못된 파일 마운트(/secrets/adc.json 이 디렉터리가 됨)가 Gemini IsADirectoryError 원인이었음.
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
     volumes:
       - "./Volumetric data:/data/volumetric:ro"
-      - "${APPDATA}/gcloud/application_default_credentials.json:/secrets/adc.json:ro"
     networks:
       - moveainetwork
     depends_on:

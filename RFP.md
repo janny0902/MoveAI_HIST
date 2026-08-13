@@ -1,4 +1,4 @@
-# moveAI RFP (원본)
+# moveAI RFP (원본)수정
 
 > **현재 시연 정리**: [`README.md`](README.md), [`docs/01-rfp.md`](docs/01-rfp.md)  
 > **문서 인덱스**: [`docs/README.md`](docs/README.md)
