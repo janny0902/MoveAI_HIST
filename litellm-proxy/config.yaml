@@ -1,0 +1,36 @@
+# LiteLLM -> Vertex AI
+# Project: moveai-504907
+# Use versioned model IDs for Vertex publisher models
+
+model_list:
+  - model_name: gemini-2.0-flash
+    litellm_params:
+      model: vertex_ai/gemini-2.0-flash-001
+      vertex_project: "moveai-504907"
+      vertex_location: "us-central1"
+
+  - model_name: gemini-1.5-flash
+    litellm_params:
+      model: vertex_ai/gemini-1.5-flash-002
+      vertex_project: "moveai-504907"
+      vertex_location: "us-central1"
+
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: vertex_ai/gemini-2.5-flash
+      vertex_project: "moveai-504907"
+      vertex_location: "us-central1"
+
+  # Cursor alias (same as 2.0)
+  - model_name: gemini-2.5-flash-preview
+    litellm_params:
+      model: vertex_ai/gemini-2.5-flash-preview-05-20
+      vertex_project: "moveai-504907"
+      vertex_location: "us-central1"
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+
+general_settings:
+  master_key: sk-moveai-local

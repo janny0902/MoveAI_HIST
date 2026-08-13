@@ -1,8 +1,8 @@
 # 11 — 관리자 화면 통합
 
-파일: `frontend-admin/` (**Vue 3 SPA**), 게이트웨이(`frontend/nginx.conf`), `docker-compose.yml`.
+파일: `frontend-admin/` (React SPA), `nginx/default.conf`, `docker-compose.yml`.
 
-원래 React Cloud Run 화면을 Vue로 맞춰 `/admin`에 붙였다.  
+원래 별도 저장소의 Cloud Run 화면을 `/admin`으로 합쳤다.  
 역할은 **「이 차에 얼마나 실리나」용량 시뮬**이다. 기사 앱의 위치·20km 복화 배차와는 분리한다.
 
 ---
@@ -10,7 +10,7 @@
 ## 1. 논리 구성
 
 ```
-브라우저 :20100
+브라우저 :30100
     → Nginx
          /       → frontend        (Vue3, 기사)
          /admin/ → frontend-admin  (React, 관리자)
@@ -34,7 +34,7 @@ compose에 관리자 백엔드가 없는 이유다. 소스는 이 저장소에 �
 | 경로 | 역할 | 배포 |
 |------|------|------|
 | `frontend/` | Vue, 기사 화면 | compose |
-| `frontend-admin/` | Vue3, 관리자 화면 | compose |
+| `frontend-admin/` | React, 관리자 화면 | compose |
 | `backend-spring/` | 도메인 API | compose |
 | `backend-ai/` | 공간 AI + Gemini | compose |
 | `vision-processor/` | 차량 제원·지오코딩 | **Cloud Run** |
@@ -71,16 +71,16 @@ backend-ai에 마운트한다. 관리자 쪽 `gcloud`와 **같은 파일**이다
 ```
 https://frontend-xi6ooeq3ta-du.a.run.app
 https://frontend-590544600586.asia-northeast3.run.app
-http://localhost:20100
-http://127.0.0.1:20100
+http://localhost:30100
+http://127.0.0.1:30100
 ```
 
-GCP VM에 올리면 `http://EXTERNAL_IP:20100` 추가.
+GCP VM에 올리면 `http://EXTERNAL_IP:30100` 추가.
 
 ```bash
 gcloud run services update matching-processor \
   --region asia-northeast3 --project moveai-504903 \
-  --update-env-vars 'CORS_ALLOW_ORIGINS=<기존;목록>;http://EXTERNAL_IP:20100'
+  --update-env-vars 'CORS_ALLOW_ORIGINS=<기존;목록>;http://EXTERNAL_IP:30100'
 # vision-processor 동일
 ```
 
@@ -116,7 +116,7 @@ location = /admin {
 
 - 끝의 `/`가 없으면 컨테이너가 `/admin/assets/...`를 받아 404.
 - `absolute_redirect off`가 없으면 리다이렉트에서 포트가 빠진다. nginx는 안에서 80을 듣고
-  밖으로 20100에 매핑돼 있어 `http://host/admin/`이 되고 브라우저가 80으로 간다.
+  밖으로 30100에 매핑돼 있어 `http://host/admin/`이 되고 브라우저가 80으로 간다.
 
 **3) index.html 상대경로** — `./config.js`, `./icon.svg`
 

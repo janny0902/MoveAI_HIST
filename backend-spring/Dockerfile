@@ -1,19 +1,19 @@
+# 무거운 gradle:8.5-jdk17 이미지 대신 JDK + gradle bin (디스크·다운로드 부담 감소)
 FROM eclipse-temurin:17-jdk-jammy AS build
-WORKDIR /workspace
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip \
+ && curl -fsSL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/gradle.zip \
+ && unzip -q /tmp/gradle.zip -d /opt \
+ && rm -f /tmp/gradle.zip \
+ && ln -s /opt/gradle-8.5/bin/gradle /usr/bin/gradle \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY . .
-RUN apt-get update && apt-get install -y --no-install-recommends unzip curl \
-    && rm -rf /var/lib/apt/lists/*
-# Use Gradle wrapper if present; otherwise install gradle
-RUN if [ -f ./gradlew ]; then \
-      chmod +x ./gradlew && ./gradlew bootJar --no-daemon; \
-    else \
-      curl -fsSL https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -o /tmp/gradle.zip \
-      && unzip -q /tmp/gradle.zip -d /opt \
-      && /opt/gradle-8.10.2/bin/gradle bootJar --no-daemon; \
-    fi
+RUN gradle bootJar -x test --no-daemon \
+ && rm -rf /root/.gradle/caches /root/.gradle/wrapper
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
-COPY --from=build /workspace/build/libs/*.jar /app/app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+COPY --from=build /app/build/libs/backend-spring-0.0.1-SNAPSHOT.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]

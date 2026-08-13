@@ -3,18 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "관리자 적재 배정 화면 (Vue3). nginx /admin 경로로 서빙.",
+  "description": "관리자 적재 배정 화면. MoveAI2 nginx의 /admin 경로로 서빙된다.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.13"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.1",
-    "vite": "^5.4.11"
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
   },
   "engines": {
     "node": ">=18"

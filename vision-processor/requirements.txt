@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+google-cloud-storage
+google-cloud-pubsub
+google-cloud-firestore
+google-cloud-aiplatform
+torch
+torchvision
+transformers
+open3d
+numpy
+scipy
+pillow
+requests

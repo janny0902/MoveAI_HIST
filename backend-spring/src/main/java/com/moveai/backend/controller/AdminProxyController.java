@@ -1,10 +1,6 @@
 package com.moveai.backend.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URI;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Set;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -18,9 +14,14 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Set;
+
 /**
- * 관리자 Vue UI → Cloud Run(matching/vision) BFF.
- * 브라우저는 동일 출처 /api/admin/* 만 호출해 CORS를 피한다.
+ * 관리자 UI → Cloud Run(matching/vision) BFF.
+ * 브라우저는 동일 출처 /api/admin/* 만 호출하고 CORS를 피한다.
  */
 @RestController
 @RequestMapping("/api/admin")

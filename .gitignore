@@ -4,6 +4,12 @@
 *.pem
 credentials.json
 application_default_credentials.json
+secrets/*
+!secrets/.gitkeep
+!secrets/application_default_credentials.json
+
+# DB 덤프 (선택 복원용, 용량 큼)
+db-dumps/
 
 # 상하차 실측 샘플 이미지 (로컬 전용, 커밋하지 않음)
 상하차 이미지/

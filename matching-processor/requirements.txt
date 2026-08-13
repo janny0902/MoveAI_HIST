@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+requests
+google-cloud-firestore
+google-cloud-pubsub
+ortools
+google-cloud-storage

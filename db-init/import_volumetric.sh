@@ -5,9 +5,9 @@ set -euo pipefail
 
 DB_HOST="${DB_HOST:-}"
 DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${POSTGRES_DB:-moveai}"
-DB_USER="${POSTGRES_USER:-moveai}"
-export PGPASSWORD="${POSTGRES_PASSWORD:-moveai}"
+DB_NAME="${POSTGRES_DB:-moveaidb}"
+DB_USER="${POSTGRES_USER:-moveaiuser}"
+export PGPASSWORD="${POSTGRES_PASSWORD:-moveaipass}"
 DATA_DIR="${VOLUMETRIC_DATA_DIR:-/data/volumetric}"
 
 PSQL_OPTS=(-v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME")

@@ -2,8 +2,8 @@
 
 > **목적**: 현재 시연 MVP를 재현·제출용으로 설명한다.  
 > **기준일**: 2026-08-13  
-> **로컬**: `http://localhost:20100` (기사 `/`, 관리자 `/admin`)  
-> **제출 저장소**: [janny0902/MoveAI_HIST](https://github.com/janny0902/MoveAI_HIST)
+> **로컬**: `http://localhost:30100` (기사 `/`, 관리자 `/admin`)  
+> **제출 저장소**: [janny0902/janny0902-MoveAI_HIST](https://github.com/janny0902/janny0902-MoveAI_HIST)
 
 ---
 

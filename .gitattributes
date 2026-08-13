@@ -1,3 +1,25 @@
+# 컨테이너 안에서 실행되는 파일은 반드시 LF여야 한다.
+#
+# Windows에서 클론하면 git이 기본으로 CRLF로 바꿔 놓는데, 리눅스 셸은 줄 끝의 \r를
+# 명령의 일부로 읽는다. 실제로 db-import가 이렇게 죽었다:
+#
+#   /import_volumetric.sh: line 4: set: pipefail
+#   : invalid option name          <- pipefail\r 를 옵션 이름으로 읽은 것
+#
+# 증상이 "옵션 이름이 잘못됐다"로 나와서 줄바꿈 문제인 줄 알아채기 어렵다.
 *.sh text eol=lf
 *.bash text eol=lf
-db-init/* text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
+*.template text eol=lf
+docker-entrypoint.d/* text eol=lf
+gradlew text eol=lf
+
+# 바이너리는 건드리지 않는다.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.xlsx binary

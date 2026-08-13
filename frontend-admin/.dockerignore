@@ -1,5 +1,7 @@
 node_modules
 dist
 .git
-*.md
+.env
+.env.local
+*.log
 infra

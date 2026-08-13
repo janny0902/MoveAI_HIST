@@ -61,27 +61,12 @@ export function boxVolumeCbm({ boxWidthMm, boxDepthMm, boxHeightMm }) {
   return (w * d * h) / 1e9;
 }
 
-/** 등록된 작업터미널. matching 실패 시 Spring stations로 폴백. */
+/** 등록된 작업터미널. 여기 없는 코드로는 상차지를 만들 수 없어 등록이 거부된다. */
 export async function fetchTerminals() {
-  if (matchingBase()) {
-    try {
-      const res = await fetch(`${matchingBase()}/v1/terminals`, { cache: "no-store" });
-      if (res.ok) {
-        const body = await res.json();
-        const list = body.terminals || [];
-        if (list.length) return list;
-      }
-    } catch { /* fall through */ }
-  }
-  const res = await fetch("/api/dispatch/stations", { cache: "no-store" });
+  const res = await fetch(`${matchingBase()}/v1/terminals`, { cache: "no-store" });
   if (!res.ok) throw new Error(`작업터미널 목록을 불러오지 못했습니다 (${res.status})`);
   const body = await res.json();
-  return (body.stations || []).map((s) => ({
-    terminal_code: s.code,
-    code: s.code,
-    name: s.name,
-    terminal_name: s.name,
-  }));
+  return body.terminals || [];
 }
 
 /** 화면 상태를 서버 필드명으로. CSV 컬럼명과 1:1이다. */

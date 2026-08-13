@@ -3,15 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- 기사 화면과 같은 카카오 노랑. styles.css의 --kakao-yellow와 같은 값이다. -->
     <meta name="theme-color" content="#ffcd00" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-    <title>moveAI 관리자</title>
+    <title>화물칸 공간 분석</title>
+    <!-- 백엔드 주소는 컨테이너 시작 시 주입된다. 빌드에 굽지 않는다. -->
     <script src="./config.js"></script>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

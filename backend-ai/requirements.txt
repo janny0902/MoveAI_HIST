@@ -1,8 +1,14 @@
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
-python-multipart==0.0.17
-pydantic==2.10.3
-numpy==2.1.3
-Pillow==11.0.0
-opencv-python-headless==4.10.0.84
-httpx==0.28.1
+fastapi
+uvicorn
+python-multipart
+pydantic
+numpy
+requests
+google-cloud-aiplatform
+Pillow
+opencv-python-headless
+ultralytics
+py3dbp
+timm
+transformers
+# pandas 미사용(용량). torch는 Dockerfile CPU wheel

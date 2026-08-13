@@ -1,138 +1,140 @@
-# HIST 전용 스택 (기존 30100 moveai-mvp 와 병행)
-# 기동: docker compose up -d --build
-# 접속: http://HOST:20100  (별도 gateway nginx 없음 → frontend가 20100)
-name: moveai-hist
-
-networks:
-  moveainetwork:
-    name: moveainetwork-hist
+name: moveai-mvp
 
 services:
-  # 스키마/시드: D:\moveAI\db-init 와 동기화. 실데이터는 db-dumps/moveaidb.dump 복원.
-  db:
-    image: postgres:15
-    container_name: hist-moveai-db
-    environment:
-      POSTGRES_DB: moveai
-      POSTGRES_USER: moveai
-      POSTGRES_PASSWORD: moveai
-    volumes:
-      - hist_pgdata:/var/lib/postgresql/data
-      - ./db-init/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
-      - ./db-init/04_terminal_distance_and_fill.sql:/docker-entrypoint-initdb.d/04_terminal_distance_and_fill.sql:ro
-      - "./Volumetric data:/data/volumetric:ro"
+  # 1. Reverse Proxy (Nginx) - Port 30100
+  nginx:
+    image: nginx:latest
+    container_name: mvp-moveai-nginx
     ports:
-      - "21432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U moveai -d moveai"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 10s
+      - "30100:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - moveainetwork
-    restart: unless-stopped
-
-  db-import:
-    image: postgres:15
-    container_name: hist-moveai-db-import
     depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      POSTGRES_DB: moveai
-      POSTGRES_USER: moveai
-      POSTGRES_PASSWORD: moveai
-      DB_HOST: db
-      VOLUMETRIC_DATA_DIR: /data/volumetric
-    volumes:
-      - ./db-init/import_volumetric.sh:/import_volumetric.sh:ro
-      - ./db-init/build_volumetric_groups.sh:/build_volumetric_groups.sh:ro
-      - "./Volumetric data:/data/volumetric:ro"
-    entrypoint: ["bash", "-lc", "bash /import_volumetric.sh"]
-    networks:
-      - moveainetwork
-    restart: "no"
+      - frontend
+      - frontend-admin
+      - backend-spring
+      - backend-ai
 
-  backend-spring:
-    build:
-      context: ./backend-spring
-    container_name: hist-moveai-backend-spring
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/moveai
-      SPRING_DATASOURCE_USERNAME: moveai
-      SPRING_DATASOURCE_PASSWORD: moveai
-      AI_BASE_URL: http://hist-moveai-backend-ai:8000
-      KAKAO_REST_KEY: ${KAKAO_REST_KEY:-}
-      ADMIN_MATCHING_BASE_URL: ${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
-      ADMIN_VISION_BASE_URL: ${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
-      CARGO_PHOTO_DIR: /data/cargo-photos
-    volumes:
-      - hist_cargo_photos:/data/cargo-photos
-    ports:
-      - "21808:8080"
-    networks:
-      - moveainetwork
-    restart: unless-stopped
-
-  backend-ai:
-    build:
-      context: ./backend-ai
-    container_name: hist-moveai-backend-ai
-    environment:
-      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-moveai-504907}
-      GCP_LOCATION: ${GCP_LOCATION:-us-central1}
-      VERTEX_ENDPOINT_ID: ${VERTEX_ENDPOINT_ID:-}
-      GOOGLE_APPLICATION_CREDENTIALS: /gcp/adc.json
-      YOLO_CONFIG_DIR: /tmp/Ultralytics
-      TORCH_HUB_DIR: /tmp/torch
-      HF_HOME: /tmp/huggingface
-      TRUCK_CAPACITY_M3: "50"
-    volumes:
-      - ${GOOGLE_ADC_PATH:-./backend-ai/.adc-placeholder.json}:/gcp/adc.json:ro
-      - ./Volumetric data:/data/volumetric:ro
-    ports:
-      - "21800:8000"
-    networks:
-      - moveainetwork
-    restart: unless-stopped
-
-  frontend-admin:
-    build:
-      context: ./frontend-admin
-    container_name: hist-moveai-frontend-admin
-    environment:
-      # 동일 출처 BFF (Vue → /api/admin/* → Spring → Cloud Run)
-      VISION_BASE_URL: /api/admin/vision
-      MATCHING_BASE_URL: /api/admin/matching
-      KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
-      PORT: "8080"
-    networks:
-      - moveainetwork
-    restart: unless-stopped
-
-  # 게이트웨이 역할: 호스트 20100 → 이 컨테이너 (hist-moveai-nginx 제거)
+  # 2. Frontend (Vue3)
   frontend:
     build:
       context: ./frontend
       args:
         VITE_KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
-    container_name: hist-moveai-frontend
-    depends_on:
-      - backend-spring
-      - backend-ai
-      - frontend-admin
-    ports:
-      - "20100:80"
+    container_name: mvp-moveai-frontend
     networks:
       - moveainetwork
-    restart: unless-stopped
 
-volumes:
-  hist_pgdata:
-    name: moveai-hist-pgdata
-  hist_cargo_photos:
-    name: moveai-hist-cargo-photos
+  # 2-1. Frontend Admin (React) - 관리자 적재 배정 화면, /admin
+  # API는 동일 출처 Spring BFF(/api/admin/*) 경유 — Cloud Run CORS 불필요
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+    container_name: mvp-moveai-frontend-admin
+    environment:
+      - PORT=8080
+      - VISION_BASE_URL=/api/admin/vision
+      - MATCHING_BASE_URL=/api/admin/matching
+      - KAKAO_JS_KEY=${VITE_KAKAO_JS_KEY:-}
+    networks:
+      - moveainetwork
+
+  # 3. Backend Main (Spring Boot)
+  backend-spring:
+    build: ./backend-spring
+    container_name: mvp-moveai-backend-spring
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/moveaidb
+      - SPRING_DATASOURCE_USERNAME=moveaiuser
+      - SPRING_DATASOURCE_PASSWORD=moveaipass
+      - KAKAO_REST_KEY=${KAKAO_REST_KEY:-}
+      - ADMIN_MATCHING_BASE_URL=${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
+      - ADMIN_VISION_BASE_URL=${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
+      - CARGO_PHOTO_DIR=/data/cargo-photos
+    volumes:
+      - ./data/cargo-photos:/data/cargo-photos
+    networks:
+      - moveainetwork
+    depends_on:
+      db:
+        condition: service_healthy
+      db-import:
+        condition: service_completed_successfully
+      backend-ai:
+        condition: service_started
+
+  # 4. Backend AI (FastAPI)
+  # ADC: .env 의 GOOGLE_ADC_PATH (Linux VM 예: /home/USER/.config/gcloud/application_default_credentials.json)
+  backend-ai:
+    build: ./backend-ai
+    container_name: mvp-moveai-backend-ai
+    environment:
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-moveai-504907}
+      - GCP_LOCATION=${GCP_LOCATION:-us-central1}
+      - VERTEX_ENDPOINT_ID=${VERTEX_ENDPOINT_ID:-}
+      - CSV_PATH=/data/volumetric/origin 체적.csv
+      - DATABASE_URL=postgresql://moveaiuser:moveaipass@db:5432/moveaidb
+      - TRUCK_CAPACITY_M3=30.545
+      - GOOGLE_APPLICATION_CREDENTIALS=/credentials/application_default_credentials.json
+    volumes:
+      - "./Volumetric data:/data/volumetric:ro"
+      - "${GOOGLE_ADC_PATH:-./secrets/application_default_credentials.json}:/credentials/application_default_credentials.json:ro"
+    networks:
+      - moveainetwork
+    depends_on:
+      db:
+        condition: service_healthy
+      db-import:
+        condition: service_completed_successfully
+
+  # 5. Database (PostgreSQL)
+  db:
+    image: postgres:15
+    container_name: mvp-moveai-db
+    environment:
+      - POSTGRES_DB=moveaidb
+      - POSTGRES_USER=moveaiuser
+      - POSTGRES_PASSWORD=moveaipass
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./db-init/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./db-init/04_terminal_distance_and_fill.sql:/docker-entrypoint-initdb.d/04_terminal_distance_and_fill.sql:ro
+      - "./Volumetric data:/data/volumetric:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moveaiuser -d moveaidb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - moveainetwork
+
+  # 6. 체적 CSV → DB 1회 적재 (완료 후 종료)
+  db-import:
+    image: postgres:15
+    container_name: mvp-moveai-db-import
+    environment:
+      - POSTGRES_DB=moveaidb
+      - POSTGRES_USER=moveaiuser
+      - POSTGRES_PASSWORD=moveaipass
+      - DB_HOST=db
+      - VOLUMETRIC_DATA_DIR=/data/volumetric
+    volumes:
+      - ./db-init/import_volumetric.sh:/import_volumetric.sh:ro
+      - ./db-init/build_volumetric_groups.sh:/build_volumetric_groups.sh:ro
+      - "./Volumetric data:/data/volumetric:ro"
+    entrypoint: ["bash", "-lc", "bash /import_volumetric.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - moveainetwork
+    restart: "no"
+
+networks:
+  moveainetwork:
+    name: moveainetwork
+    driver: bridge
+    # 새 VM에서는 자동 생성. 기존에 동일 이름 네트워크가 있으면:
+    # docker network rm moveainetwork 후 재기동하거나 external: true 로 전환.

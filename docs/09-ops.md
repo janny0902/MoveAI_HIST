@@ -26,32 +26,12 @@ VERTEX_ENDPOINT_ID=
 ## 2. Compose 기동
 
 ```bash
-# 권장: 정리 후 기동 스크립트
-chmod +x scripts/up-hist.sh && ./scripts/up-hist.sh
-
-# 또는
-docker compose up -d --build
-# 접속 http://localhost:20100  (30100 스택과 병행, DB 분리)
+docker compose -p moveai-mvp up -d --build
+# 접속 http://localhost:30100
+# GCP: http://EXTERNAL_IP:30100
 ```
 
-### 호스트 포트 — 30100·jadiss 등과 분리
-
-| 서비스 | HIST (이 저장소) | 피해야 할 예 |
-|--------|------------------|--------------|
-| frontend(=게이트웨이) | **20100** | 30100 (기존 moveAI nginx) |
-| backend-spring | **21808** | 8080 직접 노출 |
-| backend-ai | **21800** | 28080 등 |
-| PostgreSQL | **21432** | 25432 (jadiss-game-db 등) |
-
-GCP에서 둘 다 띄울 때: 방화벽 `tcp:30100` + `tcp:20100`.  
-브라우저: 기존 시연=`:30100`, HIST=`:20100`.
-
-- Compose project: `moveai-hist`
-- 네트워크: `moveainetwork-hist` (기존 `moveainetwork`와 DNS 분리)
-- 컨테이너: `hist-moveai-*`
-- 컨테이너 간 호출은 내부 포트 유지 (`db:5432`, `backend-ai:8000`)
-
-의존 순서: db healthy → spring/ai 기동 (db-import는 병렬·실패해도 스택 유지).
+의존 순서: db healthy → db-import 완료 → spring/ai start.
 
 체적 CSV 없으면 import가 그룹을 못 채울 수 있음 → `Volumetric data/` 확인.
 
@@ -60,32 +40,32 @@ GCP에서 둘 다 띄울 때: 방화벽 `tcp:30100` + `tcp:20100`.
 ## 3. 헬스
 
 ```bash
-curl http://localhost:20100/ai/health
-curl http://localhost:20100/api/health
+curl http://localhost:30100/ai/health
+curl http://localhost:30100/api/health
 ```
 
 ---
 
 ## 4. 카카오 콘솔
 
-- Web 도메인: `http://localhost:20100`, `http://127.0.0.1:20100`, GCP 시 `http://EXTERNAL_IP:20100`
+- Web 도메인: `http://localhost:30100`, `http://127.0.0.1:30100`, GCP 시 `http://EXTERNAL_IP:30100`
 - JS 키 / REST 키 구분
 
 ---
 
 ## 5. GCP VM 메모
 
-- 방화벽 **tcp:20100** (필요 시 `21808`, `21800`, `21432`도 개방)
-- **http://EXTERNAL_IP:20100** 로 접속 (HTTPS 미사용)
+- 방화벽 **tcp:30100**
+- **http://EXTERNAL_IP:30100** 로 접속 (HTTPS 미사용)
 - Linux ADC 경로가 Windows `%APPDATA%`와 다름 → compose volume 수정
 - 대용량 CSV는 scp
 
 nginx가 **Welcome to nginx!** 만 보이면 `default.conf` 마운트가 안 된 것:
 
 ```bash
-docker compose -p moveai-hist up -d --force-recreate nginx
-docker compose -p moveai-hist exec nginx head -30 /etc/nginx/conf.d/default.conf
-# proxy_pass http://hist-moveai-frontend 가 보여야 함
+docker compose -p moveai-mvp up -d --force-recreate nginx
+docker compose -p moveai-mvp exec nginx head -20 /etc/nginx/conf.d/default.conf
+# proxy_pass http://frontend 가 보여야 함
 ```
 
 ---
@@ -100,8 +80,7 @@ docker compose -p moveai-hist exec nginx head -30 /etc/nginx/conf.d/default.conf
 
 ## 7. 프로젝트 접두어
 
-컨테이너명 `hist-moveai-*`, compose project `moveai-hist`, 네트워크 `moveainetwork-hist` —
-기존 30100(`moveainetwork`)과 포트·DNS·볼륨을 격리해서 병행 기동.
+컨테이너명 `mvp-moveai-*`, compose project `moveai-mvp` — 기존 3만번대 서비스와 격리.
 
 ---
 
@@ -112,11 +91,11 @@ docker compose -p moveai-hist exec nginx head -30 /etc/nginx/conf.d/default.conf
 
 | 고친 곳 | 방식 | 반영 |
 |---------|------|------|
-| `frontend/` | compose | `:20100/` |
-| `frontend-admin/` | compose | `:20100/admin/` |
-| `backend-spring/` | compose | `:20100/api` |
-| `backend-ai/` | compose | `:20100/ai` |
-| `nginx/default.conf` | compose(restart) | :20100 |
+| `frontend/` | compose | `:30100/` |
+| `frontend-admin/` | compose | `:30100/admin/` |
+| `backend-spring/` | compose | `:30100/api` |
+| `backend-ai/` | compose | `:30100/ai` |
+| `nginx/default.conf` | compose(restart) | :30100 |
 | `vision-processor/` | **Cloud Run** | 인터넷 |
 | `matching-processor/` | **Cloud Run** | 인터넷 |
 | `tools/` | 없음 | 로컬 실행 |
@@ -191,9 +170,9 @@ gcloud run services update matching-processor \
 ### 8.3 확인
 
 ```bash
-curl http://localhost:20100/
-curl -I http://localhost:20100/admin/
-curl http://localhost:20100/ai/health
+curl http://localhost:30100/
+curl -I http://localhost:30100/admin/
+curl http://localhost:30100/ai/health
 
 curl https://vision-processor-xi6ooeq3ta-du.a.run.app/v1/trucks/T-000004
 curl -X POST -d '{}' -H 'Content-Type: application/json' \
