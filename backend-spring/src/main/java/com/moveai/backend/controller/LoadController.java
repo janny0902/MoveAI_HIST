@@ -51,7 +51,7 @@ public class LoadController {
         };
         body.add("file", resource);
 
-        logs.add("[2] RFP 3단 공간실측 요청 (Depth Anything → YOLO-Seg → 3D Packing)");
+        logs.add("[2] 공간실측 요청 (Gemini 2.5 Flash Vision 주경로, 실패 시 Depth+YOLO 폴백)");
         ResponseEntity<Map> aiRes = restTemplate.exchange(
                 "http://backend-ai:8000/ai/analyze-image",
                 HttpMethod.POST,

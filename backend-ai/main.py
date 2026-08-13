@@ -45,7 +45,8 @@ def health_check():
         "status": "ok",
         "vertex_ai": "connected" if gemini_model else "pending_credentials",
         "project": PROJECT_ID,
-        "space_engine": "depth-anything → yolov8-seg → 3d-packing",
+        "space_engine": os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini"),
+        "space_pipeline": "gemini-2.5-flash-vision (fallback: depth+yolo)",
         "briefing_engine": "gemini-2.5-flash" if gemini_model else "fallback",
         "csv_exists": os.path.exists(os.getenv("CSV_PATH", "/data/volumetric/origin 체적.csv")),
     }
@@ -205,10 +206,9 @@ async def analyze_image(file: UploadFile = File(...)):
     result["filename"] = file.filename
     result["vertex_endpoint"] = os.getenv("VERTEX_ENDPOINT_ID") or None
     result["space_pipeline"] = result.get("pipeline") or [
-        "depth-anything",
-        "yolov8-seg",
-        "3d-packing",
+        "gemini-2.5-flash-vision",
     ]
+    result["space_engine"] = os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini")
     return result
 
 

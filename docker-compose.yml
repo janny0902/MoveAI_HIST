@@ -52,7 +52,6 @@ services:
       - KAKAO_REST_KEY=${KAKAO_REST_KEY:-}
       - ADMIN_MATCHING_BASE_URL=${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
       - ADMIN_VISION_BASE_URL=${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
-      - CARGO_PHOTO_DIR=/data/cargo-photos
     volumes:
       - ./data/cargo-photos:/data/cargo-photos
     networks:
@@ -66,7 +65,6 @@ services:
         condition: service_started
 
   # 4. Backend AI (FastAPI)
-  # ADC: .env 의 GOOGLE_ADC_PATH (Linux VM 예: /home/USER/.config/gcloud/application_default_credentials.json)
   backend-ai:
     build: ./backend-ai
     container_name: mvp-moveai-backend-ai
@@ -77,10 +75,12 @@ services:
       - CSV_PATH=/data/volumetric/origin 체적.csv
       - DATABASE_URL=postgresql://moveaiuser:moveaipass@db:5432/moveaidb
       - TRUCK_CAPACITY_M3=30.545
+      - SPACE_OCCUPANCY_ENGINE=gemini
+      - GEMINI_MODEL=gemini-2.5-flash
       - GOOGLE_APPLICATION_CREDENTIALS=/credentials/application_default_credentials.json
     volumes:
       - "./Volumetric data:/data/volumetric:ro"
-      - "${GOOGLE_ADC_PATH:-./secrets/application_default_credentials.json}:/credentials/application_default_credentials.json:ro"
+      - "${APPDATA}/gcloud/application_default_credentials.json:/credentials/application_default_credentials.json:ro"
     networks:
       - moveainetwork
     depends_on:
@@ -89,7 +89,7 @@ services:
       db-import:
         condition: service_completed_successfully
 
-  # 5. Database (PostgreSQL)
+  # 5. Database (PostgreSQL) - 데이터 디렉터리: D:\moveAI\pgdata
   db:
     image: postgres:15
     container_name: mvp-moveai-db
@@ -136,5 +136,3 @@ networks:
   moveainetwork:
     name: moveainetwork
     driver: bridge
-    # 새 VM에서는 자동 생성. 기존에 동일 이름 네트워크가 있으면:
-    # docker network rm moveainetwork 후 재기동하거나 external: true 로 전환.

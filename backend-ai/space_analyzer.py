@@ -1,11 +1,8 @@
 """
-트럭 상차 이미지 잔여공간 실측 — RFP 3단 파이프라인
+트럭 상차 이미지 잔여공간 실측
 
-1) Depth Anything 계열 — 단안 깊이 + 하단 바닥면 차단(blocked)/질량 지표
-2) OpenCV 벽·박스 + YOLOv8-Seg — 골판 철벽/바닥과 화물 분리
-3) Depth-fill GT 보정 — occupied = clip(a1*blocked + a2*mass + a3*cover + b)
-
-Gemini는 잔여공간에 사용하지 않음 (브리핑 전용).
+기본(SPACE_OCCUPANCY_ENGINE=gemini): Gemini Vision이 적재율(occupied%) 주경로.
+실패 시에만 Depth + YOLO-Seg + OpenCV hybrid로 폴백.
 """
 from __future__ import annotations
 
@@ -18,6 +15,9 @@ PROJECT_ID = os.getenv("GCP_PROJECT_ID", "moveai-504907")
 LOCATION = os.getenv("GCP_LOCATION", "us-central1")
 VERTEX_ENDPOINT = os.getenv("VERTEX_ENDPOINT_ID", "")
 TRUCK_CAPACITY_M3 = float(os.getenv("TRUCK_CAPACITY_M3", "30.545"))
+# gemini | hybrid  — 시연 기본은 gemini
+SPACE_OCCUPANCY_ENGINE = os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini").strip().lower()
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 # 상하차 이미지 파일명 GT(14장)로 맞춘 Depth 적재율 보정
 # occupied = clip(a1*blocked + a2*mass + a3*cover + b, 0, 100)
@@ -334,12 +334,14 @@ def analyze_occupancy_with_gemini(
 
     mime = _guess_image_mime(image_bytes, filename)
     prompt = (
-        "후방에서 찍은 트럭/컨테이너 적재 사진이다. "
-        "내부 부피 중 화물이 차지하는 occupied_percent(0~100)만 추정하라. "
-        "빈 철벽+바닥만 보이면 0~3, 맨 안쪽 소량이면 5~15, "
-        "중간이면 25~70, 천장 근처까지 가득이면 90~99. "
-        "철벽·바닥·스크래치는 화물이 아니다. "
-        "JSON: {\"occupied_percent\": 0, \"confidence\": 0.0, \"reason\": \"짧은설명\"}"
+        "후방에서 찍은 11톤 윙바디 트럭 적재함 사진이다. "
+        f"기준 체적 {TRUCK_CAPACITY_M3} CBM (내부 약 2.35×9.30×2.45m). "
+        "내부 부피 중 화물이 차지하는 occupied_percent(0~100)를 추정하라. "
+        "빈 철벽+바닥만 보이면 0~3, 맨 안쪽 소량이면 8~15, "
+        "길이·높이로 중간이면 20~70, 천장·후문 근처까지 가득이면 85~99. "
+        "골판지 박스·파렛트만 화물이다. 철벽·바닥·스크래치·조명 반사는 화물이 아니다. "
+        "가능하면 10단위(0,10,20,…,90,98)에 가깝게 반올림하되 근거가 있으면 세밀하게. "
+        "JSON만 출력: {\"occupied_percent\": 0, \"confidence\": 0.0, \"reason\": \"짧은설명\"}"
     )
 
     def _resp_text(resp) -> str:
@@ -387,14 +389,14 @@ def analyze_occupancy_with_gemini(
 
     try:
         vertexai.init(project=PROJECT_ID, location=LOCATION)
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MODEL_NAME)
         last_err: Exception | None = None
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 resp = model.generate_content(
                     [prompt, Part.from_data(data=image_bytes, mime_type=mime)],
                     generation_config=GenerationConfig(
-                        temperature=0.1,
+                        temperature=0.05,
                         max_output_tokens=1024,
                         response_mime_type="application/json",
                     ),
@@ -402,10 +404,18 @@ def analyze_occupancy_with_gemini(
                 text = _resp_text(resp)
                 data = _parse_occ(text)
                 occ = _clamp(float(data.get("occupied_percent", data.get("occupied", 0))))
-                conf = float(data.get("confidence", 0.7) or 0.7)
+                conf = float(data.get("confidence", 0.75) or 0.75)
                 reason = str(data.get("reason") or "")[:80]
-                logs.append(f"[vision] Gemini occupied={occ:.1f}% conf={conf:.2f} {reason}")
-                return {"occupied": occ, "confidence": conf, "reason": reason, "engine": "gemini-2.5-flash-vision"}
+                logs.append(
+                    f"[vision] Gemini({GEMINI_MODEL_NAME}) occupied={occ:.1f}% "
+                    f"conf={conf:.2f} {reason}"
+                )
+                return {
+                    "occupied": occ,
+                    "confidence": conf,
+                    "reason": reason,
+                    "engine": f"{GEMINI_MODEL_NAME}-vision",
+                }
             except Exception as e:
                 last_err = e
                 logs.append(f"[vision] Gemini 시도{attempt + 1} 실패: {e.__class__.__name__}: {e}")
@@ -421,22 +431,26 @@ def fuse_occupied(
     gemini: dict[str, Any] | None,
     logs: list[str],
 ) -> tuple[float, str]:
-    """빈 차/가득 찬 차를 선형보정이 16%/65%로 밀지 못하게 게이트."""
+    """Gemini 우선. 없을 때만 Depth/시각 게이트."""
     vis_occ = float(vis.get("occupied") or 0.0)
     empty_like = bool(vis.get("empty_like"))
     full_like = bool(vis.get("full_like"))
 
-    if gemini and gemini.get("occupied") is not None and float(gemini.get("confidence") or 0) >= 0.35:
+    # Gemini 응답이 있으면 신뢰도 낮아도 주값으로 사용 (시연 안정성)
+    if gemini and gemini.get("occupied") is not None:
         occ = float(gemini["occupied"])
+        conf = float(gemini.get("confidence") or 0.0)
         engine = "gemini-vision"
-        # LLM이 화물을 이미 봤으면 empty-gate로 깎지 않는다.
         if empty_like and occ <= 8:
             occ = min(occ, 6.0)
             engine = "gemini-vision+empty-gate"
         elif full_like and occ >= 80:
             occ = max(occ, 88.0)
             engine = "gemini-vision+full-gate"
-        logs.append(f"[3/3] fuse {engine} occupied={occ:.1f}% (calib={calib:.1f} vis={vis_occ:.1f})")
+        logs.append(
+            f"[3/3] fuse {engine} occupied={occ:.1f}% conf={conf:.2f} "
+            f"(calib={calib:.1f} vis={vis_occ:.1f})"
+        )
         return _clamp(occ), engine
 
     if empty_like:
@@ -1093,21 +1107,108 @@ def analyze_with_vertex_endpoint(image_bytes: bytes, logs: list[str]) -> dict[st
     }
 
 
+def _result_from_occupied(
+    occupied: float,
+    logs: list[str],
+    *,
+    pack_engine: str,
+    pipeline: list[str],
+    reasoning: str,
+    guide_extra: str = "",
+    cargo_cover: float = 0.0,
+    floor_empty: float = 0.0,
+    blocked: float = 0.0,
+    mass: float = 0.0,
+    free_depth: float = 0.0,
+) -> dict[str, Any]:
+    occupied = _clamp(occupied)
+    remaining = _clamp(100.0 - occupied)
+    status = (
+        "여유공간 충분" if remaining >= 45 else ("정상 적재" if occupied < 85 else "과적재 주의")
+    )
+    guide = (
+        "하차/여유공간 확보 상태입니다. 추가 복화 물량 탐색이 가능합니다."
+        if remaining >= 45
+        else (
+            "정확한 부피가 적재되었습니다. 안전운행하세요."
+            if occupied < 85
+            else "과적재가 의심됩니다. 재확인하세요."
+        )
+    )
+    if guide_extra:
+        guide = f"{guide} {guide_extra}".strip()
+    rem_m3 = TRUCK_CAPACITY_M3 * (remaining / 100.0)
+    logs.append(
+        f"최종 산출 engine={pack_engine} | 잔여 {remaining:.1f}% / 적재 {occupied:.1f}% | {status}"
+    )
+    return {
+        "remaining_volume_percent": round(remaining, 2),
+        "occupied_volume_percent": round(occupied, 2),
+        "floor_empty_percent": round(floor_empty, 2),
+        "height_utilization_percent": round(occupied, 2),
+        "cargo_cover_percent": round(cargo_cover, 2),
+        "free_depth_ratio": round(free_depth, 2),
+        "depth_fill_blocked": round(blocked, 2),
+        "depth_fill_mass": round(mass, 2),
+        "status": status,
+        "guide": guide,
+        "reasoning": reasoning,
+        "engine": pack_engine,
+        "pack_engine": pack_engine,
+        "pipeline": pipeline,
+        "occupancy_grid": None,
+        "remaining_m3": round(rem_m3, 3),
+        "occupied_m3": round(TRUCK_CAPACITY_M3 * (occupied / 100.0), 3),
+        "logs": logs,
+    }
+
+
 def analyze_truck_space(image_bytes: bytes, filename: str = "") -> dict[str, Any]:
+    engine_mode = SPACE_OCCUPANCY_ENGINE or "gemini"
     logs: list[str] = [
         "이미지 수신 완료",
-        "RFP 파이프라인: (1)Depth → (2)YOLO-Seg → (3)수치 Pack (격자 제외)",
+        f"적재율 엔진 모드: {engine_mode} (기본=gemini Vision)",
     ]
 
-    # Optional: Vertex Endpoint — 수치만 있으면 사용 (격자 필수 아님)
-    try:
-        custom = analyze_with_vertex_endpoint(image_bytes, logs)
-        if custom and custom.get("occupied_volume_percent") is not None:
-            custom.setdefault("occupancy_grid", None)
-            return custom
-    except Exception as e:
-        logs.append(f"Custom Endpoint 스킵: {e}")
+    # Optional: Vertex Custom Endpoint — 명시된 경우만
+    if VERTEX_ENDPOINT:
+        try:
+            custom = analyze_with_vertex_endpoint(image_bytes, logs)
+            if custom and custom.get("occupied_volume_percent") is not None:
+                custom.setdefault("occupancy_grid", None)
+                return custom
+        except Exception as e:
+            logs.append(f"Custom Endpoint 스킵: {e}")
 
+    # ---- 주경로: Gemini Vision ----
+    if engine_mode in ("gemini", "gemini-first", "gemini_only", "gemini-only"):
+        logs.append(f"[gemini] {GEMINI_MODEL_NAME} 적재율 추정 (주경로)")
+        gemini = analyze_occupancy_with_gemini(image_bytes, filename, logs)
+        if gemini and gemini.get("occupied") is not None:
+            occ = _clamp(float(gemini["occupied"]))
+            reason = str(gemini.get("reason") or "").strip()
+            reasoning = reason or f"Gemini Vision 점유율 {occ:.1f}%"
+            logs.append(f"[gemini] 채택 occupied={occ:.1f}% (Depth/YOLO 생략)")
+            return _result_from_occupied(
+                occ,
+                logs,
+                pack_engine=str(gemini.get("engine") or "gemini-vision"),
+                pipeline=[f"{GEMINI_MODEL_NAME}-vision"],
+                reasoning=reasoning,
+            )
+        if engine_mode in ("gemini_only", "gemini-only"):
+            logs.append("[gemini] 실패 — gemini-only 모드라 hybrid 폴백 없음")
+            return _result_from_occupied(
+                0.0,
+                logs,
+                pack_engine="gemini-failed",
+                pipeline=[f"{GEMINI_MODEL_NAME}-vision"],
+                reasoning="Gemini 호출 실패",
+                guide_extra="적재율 재촬영을 권장합니다.",
+            )
+        logs.append("[gemini] 실패 → Depth+YOLO hybrid 폴백")
+
+    # ---- 폴백 / hybrid ----
     img = _decode(image_bytes)
     logs.append(f"디코드 완료: {img.shape[1]}x{img.shape[0]} px / file={filename or '-'}")
 
@@ -1125,7 +1226,7 @@ def analyze_truck_space(image_bytes: bytes, filename: str = "") -> dict[str, Any
     )
     logs.append(f"종합 근거: {reasoning}")
     logs.append(
-        f"파이프라인 완료 — Depth 적재지표 보정 주계산 "
+        f"파이프라인 완료 — hybrid "
         f"(blocked={depth_info.get('fill_blocked')} mass={depth_info.get('fill_mass')})"
     )
 
@@ -1140,7 +1241,7 @@ def analyze_truck_space(image_bytes: bytes, filename: str = "") -> dict[str, Any
         "reasoning": reasoning,
         "engine": pack["engine"],
         "pack_engine": pack.get("pack_engine"),
-        "pipeline": ["depth-anything", "yolov8-seg", "depth-fill-calib"],
+        "pipeline": ["gemini-fallback", "depth-anything", "yolov8-seg", "depth-fill-calib"],
         "occupancy_grid": None,
         "remaining_m3": pack.get("remaining_m3"),
         "occupied_m3": pack.get("occupied_m3"),
