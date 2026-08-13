@@ -1,0 +1,39 @@
+:root {
+  --bg: #0f1720;
+  --panel: #1a2430;
+  --text: #eef3f8;
+  --muted: #9aabbc;
+  --accent: #2f9e6b;
+  --line: #2a3848;
+  font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+button, input, select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  padding: 0.7rem 1rem;
+}
+input, select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #101820;
+  color: var(--text);
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.2rem;
+}
+.muted { color: var(--muted); font-size: 0.9rem; }
+.stack { display: grid; gap: 0.75rem; }

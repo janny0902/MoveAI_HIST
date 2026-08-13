@@ -1,0 +1,123 @@
+name: moveai-mvp
+
+networks:
+  moveainetwork:
+    name: moveainetwork
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mvp-moveai-db
+    environment:
+      POSTGRES_DB: moveai
+      POSTGRES_USER: moveai
+      POSTGRES_PASSWORD: moveai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db-init/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moveai -d moveai"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - moveainetwork
+
+  db-import:
+    image: postgres:15-alpine
+    container_name: mvp-moveai-db-import
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: moveai
+      PGPASSWORD: moveai
+      PGDATABASE: moveai
+    volumes:
+      - ./db-init:/scripts:ro
+      - ./Volumetric data:/data/volumetric:ro
+    entrypoint: ["/bin/sh", "/scripts/import_volumetric.sh"]
+    networks:
+      - moveainetwork
+    restart: "no"
+
+  backend-spring:
+    build:
+      context: ./backend-spring
+    container_name: mvp-moveai-backend-spring
+    depends_on:
+      db:
+        condition: service_healthy
+      db-import:
+        condition: service_completed_successfully
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/moveai
+      SPRING_DATASOURCE_USERNAME: moveai
+      SPRING_DATASOURCE_PASSWORD: moveai
+      AI_BASE_URL: http://backend-ai:8000
+      KAKAO_REST_KEY: ${KAKAO_REST_KEY:-}
+    networks:
+      - moveainetwork
+
+  backend-ai:
+    build:
+      context: ./backend-ai
+    container_name: mvp-moveai-backend-ai
+    depends_on:
+      db-import:
+        condition: service_completed_successfully
+    environment:
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-moveai-504907}
+      GCP_LOCATION: ${GCP_LOCATION:-us-central1}
+      VERTEX_ENDPOINT_ID: ${VERTEX_ENDPOINT_ID:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/adc.json
+      YOLO_CONFIG_DIR: /tmp/Ultralytics
+      TORCH_HUB_DIR: /tmp/torch
+      HF_HOME: /tmp/huggingface
+      TRUCK_CAPACITY_M3: "50"
+    volumes:
+      # 키가 준비되면 GOOGLE_ADC_PATH를 실제 ADC 경로로 바꾸세요.
+      # Windows 예: C:/Users/<you>/AppData/Roaming/gcloud/application_default_credentials.json
+      - ${GOOGLE_ADC_PATH:-./backend-ai/.adc-placeholder.json}:/gcp/adc.json:ro
+      - ./Volumetric data:/data/volumetric:ro
+    networks:
+      - moveainetwork
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
+    container_name: mvp-moveai-frontend
+    networks:
+      - moveainetwork
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+    container_name: mvp-moveai-frontend-admin
+    environment:
+      VISION_BASE_URL: ${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
+      MATCHING_BASE_URL: ${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
+      KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
+    networks:
+      - moveainetwork
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mvp-moveai-nginx
+    depends_on:
+      - frontend
+      - frontend-admin
+      - backend-spring
+      - backend-ai
+    ports:
+      - "30100:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - moveainetwork
+
+volumes:
+  pgdata:

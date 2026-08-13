@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: backend-spring
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/moveai}
+    username: ${SPRING_DATASOURCE_USERNAME:moveai}
+    password: ${SPRING_DATASOURCE_PASSWORD:moveai}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 30MB
+
+moveai:
+  ai-base-url: ${AI_BASE_URL:http://backend-ai:8000}
+  kakao-rest-key: ${KAKAO_REST_KEY:}

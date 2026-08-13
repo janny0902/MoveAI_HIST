@@ -1,0 +1,43 @@
+# secrets
+.env
+.env.local
+*.pem
+credentials.json
+application_default_credentials.json
+
+# 상하차 실측 샘플 이미지 (로컬 전용, 커밋하지 않음)
+상하차 이미지/
+_eval_imgs/
+_eval_*.py
+
+# deps / build
+node_modules/
+frontend/dist/
+frontend-admin/dist/
+backend-spring/build/
+backend-spring/.gradle/
+backend-spring/bin/
+**/__pycache__/
+*.pyc
+*.class
+*.jar
+!backend-spring/**/gradle-wrapper.jar
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
+
+# python / venv
+.venv/
+venv/
+
+# postgres host data (D:\moveAI\pgdata)
+pgdata/
+
+# 외부 참고용 클론 (KimYeounHong97/MoveAI)
+reference/KimYeounHong97-MoveAI/
+_ref_kim_tmp/
