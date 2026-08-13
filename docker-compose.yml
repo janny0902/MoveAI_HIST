@@ -8,8 +8,9 @@ networks:
     name: moveainetwork-hist
 
 services:
+  # 스키마/시드: D:\moveAI\db-init 와 동기화. 실데이터는 db-dumps/moveaidb.dump 복원.
   db:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: hist-moveai-db
     environment:
       POSTGRES_DB: moveai
@@ -17,7 +18,9 @@ services:
       POSTGRES_PASSWORD: moveai
     volumes:
       - hist_pgdata:/var/lib/postgresql/data
-      - ./db-init/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db-init/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./db-init/04_terminal_distance_and_fill.sql:/docker-entrypoint-initdb.d/04_terminal_distance_and_fill.sql:ro
+      - "./Volumetric data:/data/volumetric:ro"
     ports:
       - "21432:5432"
     healthcheck:
@@ -31,20 +34,22 @@ services:
     restart: unless-stopped
 
   db-import:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: hist-moveai-db-import
     depends_on:
       db:
         condition: service_healthy
     environment:
-      PGHOST: db
-      PGUSER: moveai
-      PGPASSWORD: moveai
-      PGDATABASE: moveai
+      POSTGRES_DB: moveai
+      POSTGRES_USER: moveai
+      POSTGRES_PASSWORD: moveai
+      DB_HOST: db
+      VOLUMETRIC_DATA_DIR: /data/volumetric
     volumes:
-      - ./db-init:/scripts:ro
-      - ./Volumetric data:/data/volumetric:ro
-    entrypoint: ["/bin/sh", "/scripts/import_volumetric.sh"]
+      - ./db-init/import_volumetric.sh:/import_volumetric.sh:ro
+      - ./db-init/build_volumetric_groups.sh:/build_volumetric_groups.sh:ro
+      - "./Volumetric data:/data/volumetric:ro"
+    entrypoint: ["bash", "-lc", "bash /import_volumetric.sh"]
     networks:
       - moveainetwork
     restart: "no"

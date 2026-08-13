@@ -5,7 +5,7 @@ spring:
   application:
     name: backend-spring
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/moveai}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:21432/moveai}
     username: ${SPRING_DATASOURCE_USERNAME:moveai}
     password: ${SPRING_DATASOURCE_PASSWORD:moveai}
     hikari:
