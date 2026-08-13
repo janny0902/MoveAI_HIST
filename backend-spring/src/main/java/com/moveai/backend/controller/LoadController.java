@@ -51,9 +51,11 @@ public class LoadController {
         };
         body.add("file", resource);
 
-        logs.add("[2] 공간실측 요청 (Gemini 2.5 Flash Vision 주경로, 실패 시 Depth+YOLO 폴백)");
+        // 컨테이너 DNS 고정명 — 공유 네트워크에서 short name 충돌 방지
+        final String aiAnalyzeUrl = "http://mvp-moveai-backend-ai:8000/ai/analyze-image";
+        logs.add("[2] 공간실측 요청 → " + aiAnalyzeUrl + " (Gemini Vision 주경로)");
         ResponseEntity<Map> aiRes = restTemplate.exchange(
-                "http://backend-ai:8000/ai/analyze-image",
+                aiAnalyzeUrl,
                 HttpMethod.POST,
                 new HttpEntity<>(body, headers),
                 Map.class
@@ -118,7 +120,19 @@ public class LoadController {
             verifyStatus = "NO_EXPECTED";
         }
 
-        if (truck != null) {
+        boolean geminiOk = analysis != null && Boolean.TRUE.equals(analysis.get("gemini_ok"));
+        Object engObj = analysis != null ? analysis.get("engine") : null;
+        String engStr = engObj != null ? engObj.toString() : "";
+        if (!geminiOk || engStr.contains("gemini-failed") || engStr.contains("yolov8") || engStr.contains("depth-visual")) {
+            logs.add("[3-fail] Gemini 유효 결과 아님 — DB 잔여면적/실측 미반영 (engine=" + engStr + ")");
+            geminiOk = false;
+            guide = analysis != null && analysis.get("guide") != null
+                    ? analysis.get("guide").toString()
+                    : "Gemini 분석 실패. 사진을 다시 올려주세요.";
+            verifyStatus = "GEMINI_FAILED";
+        }
+
+        if (geminiOk && truck != null) {
             truck.setRemainingVolumePercent(remaining);
             truck.setStatus("LOADING");
             // 검증 후 약속값 클리어
@@ -129,18 +143,24 @@ public class LoadController {
             logs.add("[4] 차량 잔여면적 DB 갱신");
         }
 
-        LoadHistory history = loadHistoryRepository.save(LoadHistory.builder()
-                .truckId(truckId)
-                .loadImageUrl(file.getOriginalFilename())
-                .remainingVolumePercent(remaining)
-                .occupiedVolumePercent(occupied)
-                .esgReductionKg(0.0)
-                .createdAt(LocalDateTime.now())
-                .build());
-        logs.add("[5] 적재 이력 저장 (id=" + history.getId() + ")");
+        Long historyId = null;
+        if (geminiOk) {
+            LoadHistory history = loadHistoryRepository.save(LoadHistory.builder()
+                    .truckId(truckId)
+                    .loadImageUrl(file.getOriginalFilename())
+                    .remainingVolumePercent(remaining)
+                    .occupiedVolumePercent(occupied)
+                    .esgReductionKg(0.0)
+                    .createdAt(LocalDateTime.now())
+                    .build());
+            historyId = history.getId();
+            logs.add("[5] 적재 이력 저장 (id=" + historyId + ")");
+        } else {
+            logs.add("[5] 적재 이력 생략 (Gemini 실패)");
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("historyId", history.getId());
+        result.put("historyId", historyId);
         result.put("remainingVolumePercent", remaining);
         result.put("occupiedVolumePercent", occupied);
         result.put("status", analysis != null ? analysis.get("status") : "unknown");
@@ -150,6 +170,10 @@ public class LoadController {
         result.put("guide", guide);
         result.put("engine", analysis != null ? analysis.get("engine") : null);
         result.put("pipeline", analysis != null ? analysis.get("pipeline") : null);
+        result.put("space_engine", analysis != null ? analysis.get("space_engine") : null);
+        result.put("pack_engine", analysis != null ? analysis.get("pack_engine") : null);
+        result.put("gemini_ok", geminiOk);
+        result.put("gemini_error", analysis != null ? analysis.get("gemini_error") : null);
         Object occupancyGrid = analysis != null ? analysis.get("occupancy_grid") : null;
         if (occupancyGrid == null && analysis != null) {
             occupancyGrid = analysis.get("occupancyGrid");

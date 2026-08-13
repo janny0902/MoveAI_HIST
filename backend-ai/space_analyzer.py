@@ -15,8 +15,10 @@ PROJECT_ID = os.getenv("GCP_PROJECT_ID", "moveai-504907")
 LOCATION = os.getenv("GCP_LOCATION", "us-central1")
 VERTEX_ENDPOINT = os.getenv("VERTEX_ENDPOINT_ID", "")
 TRUCK_CAPACITY_M3 = float(os.getenv("TRUCK_CAPACITY_M3", "30.545"))
-# gemini | hybrid  — 시연 기본은 gemini
-SPACE_OCCUPANCY_ENGINE = os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini").strip().lower()
+# gemini-only(기본): Gemini 실패 시 YOLO로 떨어지지 않음
+# gemini: Gemini 실패 시에만 hybrid 폴백
+# hybrid: Depth+YOLO만
+SPACE_OCCUPANCY_ENGINE = os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini-only").strip().lower()
 GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 # 상하차 이미지 파일명 GT(14장)로 맞춘 Depth 적재율 보정
@@ -108,6 +110,40 @@ def _guess_image_mime(image_bytes: bytes, filename: str = "") -> str:
     if name.endswith(".webp"):
         return "image/webp"
     return "image/jpeg"
+
+
+def _prepare_image_for_gemini(
+    image_bytes: bytes, filename: str = "", logs: list[str] | None = None
+) -> tuple[bytes, str]:
+    """대용량/HEIC/PNG → JPEG 리사이즈. Gemini 호출 실패(페이로드) 완화."""
+    import cv2
+
+    arr = np.frombuffer(image_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        image_bytes, mime = _prepare_image_for_gemini(image_bytes, filename, logs)
+        if logs is not None:
+            logs.append(f"[vision] 이미지 디코드 실패 — 원본 전송 mime={mime}")
+        return image_bytes, mime
+    h, w = img.shape[:2]
+    max_side = 1600
+    scale = max_side / max(h, w, 1)
+    if scale < 1.0:
+        img = cv2.resize(
+            img,
+            (max(1, int(w * scale)), max(1, int(h * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    ok, buf = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    if not ok:
+        return image_bytes, _guess_image_mime(image_bytes, filename)
+    out = buf.tobytes()
+    if logs is not None:
+        logs.append(
+            f"[vision] Gemini용 전처리 {w}x{h} → {img.shape[1]}x{img.shape[0]} "
+            f"jpeg {len(image_bytes)}→{len(out)} bytes"
+        )
+    return out, "image/jpeg"
 
 
 def analyze_structure_opencv(img_bgr: np.ndarray, logs: list[str] | None = None) -> dict[str, Any]:
@@ -337,8 +373,9 @@ def analyze_occupancy_with_gemini(
         "후방에서 찍은 11톤 윙바디 트럭 적재함 사진이다. "
         f"기준 체적 {TRUCK_CAPACITY_M3} CBM (내부 약 2.35×9.30×2.45m). "
         "내부 부피 중 화물이 차지하는 occupied_percent(0~100)를 추정하라. "
+        "중요: 화면 대부분을 골판지 박스 면이 가리면 85~99 (빈 바닥이 조금만 보여도 만원에 가깝다). "
         "빈 철벽+바닥만 보이면 0~3, 맨 안쪽 소량이면 8~15, "
-        "길이·높이로 중간이면 20~70, 천장·후문 근처까지 가득이면 85~99. "
+        "길이·높이로 중간이면 20~70. "
         "골판지 박스·파렛트만 화물이다. 철벽·바닥·스크래치·조명 반사는 화물이 아니다. "
         "가능하면 10단위(0,10,20,…,90,98)에 가깝게 반올림하되 근거가 있으면 세밀하게. "
         "JSON만 출력: {\"occupied_percent\": 0, \"confidence\": 0.0, \"reason\": \"짧은설명\"}"
@@ -418,11 +455,17 @@ def analyze_occupancy_with_gemini(
                 }
             except Exception as e:
                 last_err = e
-                logs.append(f"[vision] Gemini 시도{attempt + 1} 실패: {e.__class__.__name__}: {e}")
+                msg = f"{e.__class__.__name__}: {e}"
+                logs.append(f"[vision] Gemini 시도{attempt + 1} 실패: {msg}")
+                # 할당량/일시 오류는 짧게 대기 후 재시도
+                if any(k in msg for k in ("429", "Resource exhausted", "Deadline", "503", "UNAVAILABLE")):
+                    import time
+                    time.sleep(1.2 * (attempt + 1))
         raise last_err or RuntimeError("gemini failed")
     except Exception as e:
-        logs.append(f"[vision] Gemini 실패: {e.__class__.__name__}: {e}")
-        return None
+        msg = f"{e.__class__.__name__}: {e}"
+        logs.append(f"[vision] Gemini 실패: {msg}")
+        return {"occupied": None, "error": msg, "engine": "gemini-failed"}
 
 
 def fuse_occupied(
@@ -1164,10 +1207,13 @@ def _result_from_occupied(
 
 
 def analyze_truck_space(image_bytes: bytes, filename: str = "") -> dict[str, Any]:
-    engine_mode = SPACE_OCCUPANCY_ENGINE or "gemini"
+    # gemini / gemini-first 도 시연에서는 YOLO 1~2% 폴백을 막기 위해 only와 동일 취급
+    engine_mode = SPACE_OCCUPANCY_ENGINE or "gemini-only"
+    if engine_mode in ("gemini", "gemini-first"):
+        engine_mode = "gemini-only"
     logs: list[str] = [
         "이미지 수신 완료",
-        f"적재율 엔진 모드: {engine_mode} (기본=gemini Vision)",
+        f"적재율 엔진 모드: {engine_mode}",
     ]
 
     # Optional: Vertex Custom Endpoint — 명시된 경우만
@@ -1181,32 +1227,44 @@ def analyze_truck_space(image_bytes: bytes, filename: str = "") -> dict[str, Any
             logs.append(f"Custom Endpoint 스킵: {e}")
 
     # ---- 주경로: Gemini Vision ----
-    if engine_mode in ("gemini", "gemini-first", "gemini_only", "gemini-only"):
-        logs.append(f"[gemini] {GEMINI_MODEL_NAME} 적재율 추정 (주경로)")
+    if engine_mode in ("gemini_only", "gemini-only", "gemini", "gemini-first"):
+        logs.append(f"[gemini] {GEMINI_MODEL_NAME} 적재율 추정 (주경로, YOLO 폴백 없음)")
         gemini = analyze_occupancy_with_gemini(image_bytes, filename, logs)
         if gemini and gemini.get("occupied") is not None:
             occ = _clamp(float(gemini["occupied"]))
             reason = str(gemini.get("reason") or "").strip()
             reasoning = reason or f"Gemini Vision 점유율 {occ:.1f}%"
             logs.append(f"[gemini] 채택 occupied={occ:.1f}% (Depth/YOLO 생략)")
-            return _result_from_occupied(
+            out = _result_from_occupied(
                 occ,
                 logs,
                 pack_engine=str(gemini.get("engine") or "gemini-vision"),
                 pipeline=[f"{GEMINI_MODEL_NAME}-vision"],
                 reasoning=reasoning,
             )
-        if engine_mode in ("gemini_only", "gemini-only"):
-            logs.append("[gemini] 실패 — gemini-only 모드라 hybrid 폴백 없음")
-            return _result_from_occupied(
-                0.0,
-                logs,
-                pack_engine="gemini-failed",
-                pipeline=[f"{GEMINI_MODEL_NAME}-vision"],
-                reasoning="Gemini 호출 실패",
-                guide_extra="적재율 재촬영을 권장합니다.",
-            )
-        logs.append("[gemini] 실패 → Depth+YOLO hybrid 폴백")
+            out["space_engine"] = "gemini"
+            out["gemini_ok"] = True
+            out["gemini_error"] = None
+            return out
+        err = ""
+        if isinstance(gemini, dict):
+            err = str(gemini.get("error") or "")
+        if not err:
+            fail_logs = [x for x in logs if "Gemini" in x and "실패" in x]
+            err = fail_logs[-1] if fail_logs else "원인 로그 없음"
+        logs.append(f"[gemini] 실패 — gemini-only: Depth/YOLO 폴백 금지 | 원인: {err}")
+        out = _result_from_occupied(
+            0.0,
+            logs,
+            pack_engine="gemini-failed",
+            pipeline=[f"{GEMINI_MODEL_NAME}-vision"],
+            reasoning=f"Gemini 호출 실패 — {err[:160]}",
+            guide_extra="Gemini 분석 실패. JPG/PNG로 다시 올려주세요. (YOLO 폴백 비활성)",
+        )
+        out["space_engine"] = "gemini"
+        out["gemini_ok"] = False
+        out["gemini_error"] = err[:400]
+        return out
 
     # ---- 폴백 / hybrid ----
     img = _decode(image_bytes)

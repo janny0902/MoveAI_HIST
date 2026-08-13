@@ -1,0 +1,12 @@
+﻿filename,gt_occupied_percent,truck,capacity_m3,dims_m,max_payload_kg
+fill_00pct.png,0,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_10pct.png,10,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_20pct.png,20,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_30pct.png,30,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_40pct.png,40,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_50pct.png,50,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_60pct.png,60,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_70pct.png,70,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_80pct.png,80,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_90pct.png,90,11t_wingbody,30.545,2.35x9.30x2.45,11000
+fill_98pct.png,98,11t_wingbody,30.545,2.35x9.30x2.45,11000

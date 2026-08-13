@@ -2866,14 +2866,37 @@ async function onImageUpload(e) {
   showLogs.value = true
   addLogs([
     `사진 업로드: ${file.name}`,
-    'RFP 3단 파이프라인 요청 → [1/3] Depth Anything · [2/3] YOLOv8-Seg · [3/3] py3dbp',
+    '적재율 실측 요청 → Gemini 2.5 Flash Vision (실패 시 Depth+YOLO 폴백)',
   ])
-  startBusy('잔여공간 3단 실측', '[1/3] Depth → [2/3] Seg → [3/3] Pack')
+  startBusy('잔여공간 실측', 'Gemini Vision 분석 중...')
   const form = new FormData()
   form.append('file', file)
   form.append('truckId', String(me.value.truckId))
   try {
     const { data } = await axios.post('/api/load/upload', form, { timeout: 180000 })
+    addLogs(data.logs)
+    if (data.pipeline) addLogs('사용 파이프라인: ' + (Array.isArray(data.pipeline) ? data.pipeline.join(' → ') : data.pipeline))
+    if (data.engine) addLogs('엔진: ' + data.engine)
+    if (data.space_engine || data.spaceEngine) addLogs('space_engine: ' + (data.space_engine || data.spaceEngine))
+    const eng = String(data.engine || data.pack_engine || '')
+    // 서버 gemini_ok를 우선 신뢰 (문자열 엔진명 오탐 방지)
+    const geminiOk = data.gemini_ok === true || data.gemini_ok === 'true'
+    if (!geminiOk) {
+      const why = data.gemini_error
+        || (Array.isArray(data.logs) ? [...data.logs].reverse().find((l) => /Gemini.*실패|실패 —/.test(String(l))) : '')
+        || eng
+        || '원인 미상'
+      addLogs(`거부: Gemini 실패 (engine=${eng})`)
+      addLogs(`원인: ${why}`)
+      guide.value = data.guide || 'Gemini 분석 실패. 사진을 다시 올려주세요.'
+      alert(
+        'Gemini 적재율 분석 실패\n\n'
+        + `원인: ${why}\n\n`
+        + '조치: JPG/PNG로 다시 업로드, 잠시 후 재시도\n'
+        + '(YOLO 폴백은 막아 둔 상태입니다)',
+      )
+      return
+    }
     occupied.value = Number(data.occupiedVolumePercent ?? 0)
     remaining.value = Number(data.remainingVolumePercent ?? 100)
     spaceMeasured.value = true
@@ -2889,9 +2912,6 @@ async function onImageUpload(e) {
       truckStatusText.value = '상차 중'
     }
     saveActiveTrip()
-    addLogs(data.logs)
-    if (data.pipeline) addLogs('사용 파이프라인: ' + (Array.isArray(data.pipeline) ? data.pipeline.join(' → ') : data.pipeline))
-    if (data.engine) addLogs('엔진: ' + data.engine)
     const segs = activeTrip.value?.measuredLoads || []
     addLogs(
       `실측 적재 갱신: ${occupied.value}% (${loadedCbm.value} m³ / ${truckCapacityM3.value} m³)`

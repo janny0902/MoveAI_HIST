@@ -17,8 +17,27 @@ app.add_middleware(
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "moveai-504907")
 LOCATION = os.getenv("GCP_LOCATION", "us-central1")
 
+def _adc_status() -> dict:
+    """GOOGLE_APPLICATION_CREDENTIALS가 파일인지 검사 (디렉터리 마운트 사고 감지)."""
+    import os as _os
+    p = _os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or ""
+    if not p:
+        return {"ok": False, "path": "", "error": "GOOGLE_APPLICATION_CREDENTIALS 미설정"}
+    if _os.path.isdir(p):
+        return {
+            "ok": False,
+            "path": p,
+            "error": "인증 경로가 디렉터리입니다. 호스트 ADC JSON 파일 마운트를 확인하세요.",
+        }
+    if not _os.path.isfile(p):
+        return {"ok": False, "path": p, "error": "인증 파일이 없습니다."}
+    return {"ok": True, "path": p, "error": None}
+
 gemini_model = None
+_adc = _adc_status()
 try:
+    if not _adc["ok"]:
+        raise RuntimeError(_adc["error"])
     import vertexai
     from vertexai.generative_models import GenerativeModel
 
@@ -41,12 +60,15 @@ class CargoItem(BaseModel):
 
 @app.get("/ai/health")
 def health_check():
+    adc = _adc_status()
     return {
         "status": "ok",
         "vertex_ai": "connected" if gemini_model else "pending_credentials",
+        "adc_ok": adc["ok"],
+        "adc_error": adc["error"],
         "project": PROJECT_ID,
-        "space_engine": os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini"),
-        "space_pipeline": "gemini-2.5-flash-vision (fallback: depth+yolo)",
+        "space_engine": os.getenv("SPACE_OCCUPANCY_ENGINE", "gemini-only"),
+        "space_pipeline": "gemini-2.5-flash-vision (no yolo fallback)",
         "briefing_engine": "gemini-2.5-flash" if gemini_model else "fallback",
         "csv_exists": os.path.exists(os.getenv("CSV_PATH", "/data/volumetric/origin 체적.csv")),
     }

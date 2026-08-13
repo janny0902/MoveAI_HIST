@@ -75,12 +75,13 @@ services:
       - CSV_PATH=/data/volumetric/origin 체적.csv
       - DATABASE_URL=postgresql://moveaiuser:moveaipass@db:5432/moveaidb
       - TRUCK_CAPACITY_M3=30.545
-      - SPACE_OCCUPANCY_ENGINE=gemini
+      - SPACE_OCCUPANCY_ENGINE=gemini-only
       - GEMINI_MODEL=gemini-2.5-flash
-      - GOOGLE_APPLICATION_CREDENTIALS=/credentials/application_default_credentials.json
+      # 파일 마운트 대상은 /secrets/adc.json (디렉터리로 잘못 생성된 옛 경로 회피)
+      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/adc.json
     volumes:
       - "./Volumetric data:/data/volumetric:ro"
-      - "${APPDATA}/gcloud/application_default_credentials.json:/credentials/application_default_credentials.json:ro"
+      - "${APPDATA}/gcloud/application_default_credentials.json:/secrets/adc.json:ro"
     networks:
       - moveainetwork
     depends_on:

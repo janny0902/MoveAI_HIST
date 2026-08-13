@@ -1,0 +1,211 @@
+[
+  {
+    "file": "fill_00pct.png",
+    "gt": 0,
+    "pred_occ": 0.0,
+    "pred_rem": 100.0,
+    "err": 0.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "트럭 적재함 내부에 화물이 전혀 보이지 않고, 바닥과 벽면만 보입니다.",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=0.0% conf=0.98 트럭 적재함 내부에 화물이 전혀 보이지 않고, 바닥과 벽면만 보입니다.",
+      "[gemini] 채택 occupied=0.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_10pct.png",
+    "gt": 10,
+    "pred_occ": 5.0,
+    "pred_rem": 95.0,
+    "err": -5.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 5.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=5.0% conf=0.55 ",
+      "[gemini] 채택 occupied=5.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_20pct.png",
+    "gt": 20,
+    "pred_occ": 23.0,
+    "pred_rem": 77.0,
+    "err": 3.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 23.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=23.0% conf=0.55 ",
+      "[gemini] 채택 occupied=23.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_30pct.png",
+    "gt": 30,
+    "pred_occ": 20.0,
+    "pred_rem": 80.0,
+    "err": -10.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 20.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=20.0% conf=0.55 ",
+      "[gemini] 채택 occupied=20.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_40pct.png",
+    "gt": 40,
+    "pred_occ": 18.0,
+    "pred_rem": 82.0,
+    "err": -22.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 18.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=18.0% conf=0.55 ",
+      "[gemini] 채택 occupied=18.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_50pct.png",
+    "gt": 50,
+    "pred_occ": 40.0,
+    "pred_rem": 60.0,
+    "err": -10.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 40.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=40.0% conf=0.55 ",
+      "[gemini] 채택 occupied=40.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_60pct.png",
+    "gt": 60,
+    "pred_occ": 50.0,
+    "pred_rem": 50.0,
+    "err": -10.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 50.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=50.0% conf=0.55 ",
+      "[gemini] 채택 occupied=50.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_70pct.png",
+    "gt": 70,
+    "pred_occ": 60.0,
+    "pred_rem": 40.0,
+    "err": -10.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 60.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=60.0% conf=0.55 ",
+      "[gemini] 채택 occupied=60.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_80pct.png",
+    "gt": 80,
+    "pred_occ": 70.0,
+    "pred_rem": 30.0,
+    "err": -10.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 70.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=70.0% conf=0.55 ",
+      "[gemini] 채택 occupied=70.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_90pct.png",
+    "gt": 90,
+    "pred_occ": 98.0,
+    "pred_rem": 2.0,
+    "err": 8.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "Gemini Vision 점유율 98.0%",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=98.0% conf=0.55 ",
+      "[gemini] 채택 occupied=98.0% (Depth/YOLO 생략)"
+    ]
+  },
+  {
+    "file": "fill_98pct.png",
+    "gt": 98,
+    "pred_occ": 98.0,
+    "pred_rem": 2.0,
+    "err": 0.0,
+    "engine": "gemini-2.5-flash-vision",
+    "space_engine": "gemini",
+    "pipeline": [
+      "gemini-2.5-flash-vision"
+    ],
+    "reason": "트럭 적재함이 골판지 박스로 바닥부터 천장 근처까지, 그리고 좌우 폭 전체를 채우며 후문까지 가득 적재되어 있습니다. 빈 공간이 거의 보이지 않",
+    "gemini_logs": [
+      "적재율 엔진 모드: gemini (기본=gemini Vision)",
+      "[gemini] gemini-2.5-flash 적재율 추정 (주경로)",
+      "[vision] Gemini(gemini-2.5-flash) occupied=98.0% conf=0.95 트럭 적재함이 골판지 박스로 바닥부터 천장 근처까지, 그리고 좌우 폭 전체를 채우며 후문까지 가득 적재되어 있습니다. 빈 공간이 거의 보이지 않",
+      "[gemini] 채택 occupied=98.0% (Depth/YOLO 생략)"
+    ]
+  }
+]
