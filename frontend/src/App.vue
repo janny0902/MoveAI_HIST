@@ -108,6 +108,10 @@ function logout() {
   logs.value = []
 }
 
+function goVolumeRegister() {
+  window.location.href = '/admin/?tab=cargo'
+}
+
 async function doLogin() {
   if (!loginForm.phone || !loginForm.truckNumber) {
     toast.value = '차량번호와 전화번호를 입력하세요'
@@ -347,6 +351,7 @@ onMounted(async () => {
             <span>{{ me.driverName || '기사' }}</span>
             <span class="sub">{{ me.truckNumber }}</span>
           </div>
+          <button class="demo-trigger" type="button" @click="goVolumeRegister">+ 체적</button>
           <button class="link-btn" @click="logout">로그아웃</button>
         </div>
         <p class="route-bar" @click="gate = 'route'">
@@ -390,7 +395,7 @@ onMounted(async () => {
 
             <div v-if="!feed.length" class="empty-box shadow">
               제안 물량이 없습니다.<br />
-              <span class="desc subtle">배차 propose 연동 후 여기에 카드가 쌓입니다.</span>
+              <span class="desc subtle">관리자 「+ 체적」으로 등록하면 PENDING 카드가 여기에 표시됩니다.</span>
             </div>
             <article
               v-for="item in feed"

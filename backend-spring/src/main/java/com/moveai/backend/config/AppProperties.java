@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 public class AppProperties {
     private String aiBaseUrl = "http://backend-ai:8000";
     private String kakaoRestKey = "";
+    private String cargoPhotoDir = "/data/cargo-photos";
 
     public String getAiBaseUrl() {
         return aiBaseUrl;
@@ -23,5 +24,13 @@ public class AppProperties {
 
     public void setKakaoRestKey(String kakaoRestKey) {
         this.kakaoRestKey = kakaoRestKey;
+    }
+
+    public String getCargoPhotoDir() {
+        return cargoPhotoDir;
+    }
+
+    public void setCargoPhotoDir(String cargoPhotoDir) {
+        this.cargoPhotoDir = cargoPhotoDir;
     }
 }

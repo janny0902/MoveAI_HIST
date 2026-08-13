@@ -64,6 +64,9 @@ services:
       KAKAO_REST_KEY: ${KAKAO_REST_KEY:-}
       ADMIN_MATCHING_BASE_URL: ${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
       ADMIN_VISION_BASE_URL: ${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
+      CARGO_PHOTO_DIR: /data/cargo-photos
+    volumes:
+      - hist_cargo_photos:/data/cargo-photos
     ports:
       - "21808:8080"
     networks:
@@ -126,3 +129,5 @@ services:
 volumes:
   hist_pgdata:
     name: moveai-hist-pgdata
+  hist_cargo_photos:
+    name: moveai-hist-cargo-photos

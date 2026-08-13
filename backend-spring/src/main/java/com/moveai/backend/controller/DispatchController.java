@@ -1,16 +1,23 @@
 package com.moveai.backend.controller;
 
+import com.moveai.backend.entity.CargoRequest;
 import com.moveai.backend.entity.LoadHistory;
 import com.moveai.backend.entity.Truck;
+import com.moveai.backend.repository.CargoRequestRepository;
 import com.moveai.backend.repository.LoadHistoryRepository;
 import com.moveai.backend.repository.TruckRepository;
+import com.moveai.backend.service.CalculationService;
 import com.moveai.backend.service.StationCatalog;
+import com.moveai.backend.service.VolumeRegisterService;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Bootstrap dispatch stubs — full matching/nearby/navi lands in later phases.
@@ -21,15 +28,24 @@ public class DispatchController {
     private final StationCatalog stations;
     private final TruckRepository truckRepository;
     private final LoadHistoryRepository loadHistoryRepository;
+    private final CargoRequestRepository cargoRequestRepository;
+    private final CalculationService calculationService;
+    private final VolumeRegisterService volumeRegisterService;
     private final AtomicLong demoEpoch = new AtomicLong(1);
 
     public DispatchController(
             StationCatalog stations,
             TruckRepository truckRepository,
-            LoadHistoryRepository loadHistoryRepository) {
+            LoadHistoryRepository loadHistoryRepository,
+            CargoRequestRepository cargoRequestRepository,
+            CalculationService calculationService,
+            VolumeRegisterService volumeRegisterService) {
         this.stations = stations;
         this.truckRepository = truckRepository;
         this.loadHistoryRepository = loadHistoryRepository;
+        this.cargoRequestRepository = cargoRequestRepository;
+        this.calculationService = calculationService;
+        this.volumeRegisterService = volumeRegisterService;
     }
 
     @GetMapping("/stations")
@@ -50,12 +66,30 @@ public class DispatchController {
                     .map(t -> t.getRemainingVolumePercent() == null ? 100.0 : t.getRemainingVolumePercent())
                     .orElse(100.0);
         }
+        List<Map<String, Object>> items = cargoRequestRepository.findByStatusOrderByIdDesc("PENDING").stream()
+                .limit(30)
+                .map(this::toCargoCard)
+                .toList();
         Map<String, Object> res = new HashMap<>();
-        res.put("items", List.of());
+        res.put("items", items);
         res.put("notifications", List.of());
         res.put("remainingVolumePercent", rem);
-        res.put("count", 0);
+        res.put("count", items.size());
         return res;
+    }
+
+    @GetMapping("/fill-preview")
+    public Map<String, Object> fillPreview(@RequestParam double volumeM3) {
+        return calculationService.fillPreview(Math.max(0, volumeM3));
+    }
+
+    @PostMapping("/od-items")
+    public Map<String, Object> registerOdItem(@RequestBody Map<String, Object> body) {
+        try {
+            return volumeRegisterService.registerItem(body);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     @GetMapping("/offers")
@@ -145,6 +179,23 @@ public class DispatchController {
             loadHistoryRepository.deleteByTruckId(truckId);
         }
         return Map.of("status", "OK", "truckId", truckId, "remainingVolumePercent", 100);
+    }
+
+    private Map<String, Object> toCargoCard(CargoRequest r) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("requestId", r.getId());
+        m.put("origin", r.getOrigin());
+        m.put("destination", r.getDestination());
+        m.put("originCode", r.getOriginCode());
+        m.put("destinationCode", r.getDestinationCode());
+        m.put("boxCount", r.getBoxCount());
+        m.put("totalVolumeM3", r.getTotalVolumeM3());
+        m.put("fillPercentOf11t", r.getExpectedFillPercent());
+        m.put("proposedFee", r.getProposedFee());
+        m.put("netProfit", r.getNetProfit());
+        m.put("briefing", r.getBriefing());
+        m.put("message", r.getBriefing());
+        return m;
     }
 
     private static String regionOf(String code) {

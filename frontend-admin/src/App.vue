@@ -15,7 +15,11 @@ const TABS = [
   { key: 'list', label: '대기 운송장' },
 ]
 
-const tab = ref('capture')
+const tab = ref(
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'cargo'
+    ? 'cargo'
+    : 'capture',
+)
 const truckId = ref(loadPref('truckId', 'T-000001'))
 const gps = ref(null)
 const override = ref(null)

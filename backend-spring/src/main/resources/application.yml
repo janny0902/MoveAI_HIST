@@ -8,10 +8,14 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/moveai}
     username: ${SPRING_DATASOURCE_USERNAME:moveai}
     password: ${SPRING_DATASOURCE_PASSWORD:moveai}
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 5
   jpa:
     hibernate:
       ddl-auto: update
     open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
       hibernate:
         jdbc:
@@ -24,6 +28,7 @@ spring:
 moveai:
   ai-base-url: ${AI_BASE_URL:http://backend-ai:8000}
   kakao-rest-key: ${KAKAO_REST_KEY:}
+  cargo-photo-dir: ${CARGO_PHOTO_DIR:/data/cargo-photos}
 
 admin:
   matching:

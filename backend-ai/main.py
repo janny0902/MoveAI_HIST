@@ -7,7 +7,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from space_analyzer import analyze_image
+from space_analyzer import analyze_floor_cargo, analyze_image, fill_by_vehicle, VEHICLE_PROFILES
 from utils import TRUCK_CAPACITY_M3, credentials_present, csv_exists
 
 app = FastAPI(title="moveAI backend-ai", version="0.1.0-bootstrap")
@@ -68,3 +68,24 @@ async def analyze(file: UploadFile = File(...)) -> dict[str, Any]:
     raw = await file.read()
     name = file.filename or "upload.jpg"
     return analyze_image(raw, name)
+
+
+@app.post("/ai/analyze-floor-cargo")
+async def analyze_floor_cargo_api(file: UploadFile = File(...)) -> dict[str, Any]:
+    content = await file.read()
+    result = analyze_floor_cargo(content, file.filename or "")
+    result["filename"] = file.filename
+    return result
+
+
+@app.get("/ai/vehicle-fill")
+def vehicle_fill(volume_m3: float = 1.0) -> dict[str, Any]:
+    vol = max(0.0, float(volume_m3))
+    fills = fill_by_vehicle(vol)
+    return {
+        "volume_m3": round(vol, 4),
+        "fill_by_vehicle": fills,
+        "vehicle_profiles": VEHICLE_PROFILES,
+        "fill_percent_of_11t": fills.get("11t", {}).get("fillPercent", 0),
+    }
+
