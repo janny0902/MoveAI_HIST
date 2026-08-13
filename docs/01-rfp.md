@@ -42,7 +42,7 @@
 |------|------|
 | 웹앱 | Vue3 기사 + React `/admin` |
 | MSA + Compose | nginx, frontend, frontend-admin, spring, ai, db |
-| 포트 3만번대 | **30100** |
+| 포트 3만번대 (RFP) | **20100** (시연 포트) |
 | Vue / Spring / PG / FastAPI | 준수 |
 | Nginx + `moveainetwork` | 준수 |
 | 카카오 | JS맵 + REST directions |

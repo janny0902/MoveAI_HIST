@@ -5,7 +5,7 @@
 ## 1. 논리 구성
 
 ```
-브라우저 :30100
+브라우저 :20100
     → Nginx
          /        → frontend (Vue3)
          /admin/  → frontend-admin (React)
@@ -26,15 +26,15 @@ Spring이 FastAPI를 **내부 URL**로 호출한다.
 
 ## 2. 컨테이너
 
-| Service | Container | 역할 |
-|---------|-----------|------|
-| nginx | mvp-moveai-nginx | ALB 역할, 30100 |
-| frontend | mvp-moveai-frontend | 기사 Vue SPA |
-| frontend-admin | mvp-moveai-frontend-admin | 관리자 React |
-| backend-spring | mvp-moveai-backend-spring | 도메인 API |
-| backend-ai | mvp-moveai-backend-ai | 공간 AI + Gemini |
-| db | mvp-moveai-db | Postgres 15 |
-| db-import | mvp-moveai-db-import | 기동 시 CSV 적재 후 exit |
+| Service | Container | 호스트 포트 | 역할 |
+|---------|-----------|-------------|------|
+| nginx | mvp-moveai-nginx | **20100** | ALB 역할 |
+| frontend | mvp-moveai-frontend | (내부) | 기사 Vue SPA |
+| frontend-admin | mvp-moveai-frontend-admin | (내부) | 관리자 React |
+| backend-spring | mvp-moveai-backend-spring | **20800** | 도메인 API |
+| backend-ai | mvp-moveai-backend-ai | **28000** | 공간 AI + Gemini |
+| db | mvp-moveai-db | **25432** | Postgres 15 |
+| db-import | mvp-moveai-db-import | — | 기동 시 CSV 적재 후 exit |
 
 네트워크 이름: **`moveainetwork`** (compose `networks.name`).
 

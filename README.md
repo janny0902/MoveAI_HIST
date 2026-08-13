@@ -2,9 +2,9 @@
 
 간선 택배 트럭의 **잔여 공간**을 사진으로 읽고, **같은 방향 복화**를 제안·수락하는 웹앱입니다.
 
-해커톤 제출 저장소: [janny0902/janny0902-MoveAI_HIST](https://github.com/janny0902/janny0902-MoveAI_HIST)
+해커톤 제출 저장소: [janny0902/MoveAI_HIST](https://github.com/janny0902/MoveAI_HIST)
 
-로컬: `http://localhost:30100` · 기사 앱 `/` · 관리자 `/admin`
+로컬: `http://localhost:20100` · 기사 앱 `/` · 관리자 `/admin`
 
 ---
 
@@ -17,12 +17,12 @@
 ## 구성
 
 ```
-:30100 Nginx (moveainetwork)
+:20100 Nginx (moveainetwork)
   /        Vue3 기사 앱
   /admin   React 관리자 (적재 배정 시뮬)
-  /api     Spring Boot
-  /ai      FastAPI (공간 분석)
-           PostgreSQL
+  /api     Spring Boot   (:20800 직접)
+  /ai      FastAPI       (:28000 직접)
+           PostgreSQL    (:25432 직접)
 ```
 
 | 역할 | 기술 |
@@ -32,7 +32,7 @@
 | 도메인 API | Spring Boot |
 | 공간 AI | FastAPI · Depth Anything · OpenCV · Gemini Vision · YOLO-seg |
 | 지도 | 카카오맵 JS + REST 길찾기 |
-| 실행 | Docker Compose · 포트 **30100** |
+| 실행 | Docker Compose · 포트 **20100** |
 
 ---
 
@@ -86,10 +86,10 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-카카오 콘솔 Web 도메인에 `http://localhost:30100` 을 등록합니다.
+카카오 콘솔 Web 도메인에 `http://localhost:20100` 을 등록합니다.
 
 ---
 
 ## 요구 스택 (RFP)
 
-Vue3 · Spring Boot · FastAPI · PostgreSQL · Nginx · Docker Compose · 포트 3만번대 · 네트워크 `moveainetwork`
+Vue3 · Spring Boot · FastAPI · PostgreSQL · Nginx · Docker Compose · 포트 **20100** · 네트워크 `moveainetwork`

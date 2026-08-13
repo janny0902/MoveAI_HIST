@@ -27,9 +27,20 @@ VERTEX_ENDPOINT_ID=
 
 ```bash
 docker compose -p moveai-mvp up -d --build
-# 접속 http://localhost:30100
-# GCP: http://EXTERNAL_IP:30100
+# 접속 http://localhost:20100
+# GCP: http://EXTERNAL_IP:20100
 ```
+
+### 호스트 포트 (2만번대)
+
+| 서비스 | 호스트 | 컨테이너 내부 |
+|--------|--------|----------------|
+| nginx (앱 진입) | **20100** | 80 |
+| backend-spring | **20800** | 8080 |
+| backend-ai | **28000** | 8000 |
+| PostgreSQL | **25432** | 5432 |
+
+컨테이너 간 호출은 서비스명+내부 포트 유지 (`db:5432`, `backend-ai:8000`).
 
 의존 순서: db healthy → db-import 완료 → spring/ai start.
 
@@ -40,23 +51,23 @@ docker compose -p moveai-mvp up -d --build
 ## 3. 헬스
 
 ```bash
-curl http://localhost:30100/ai/health
-curl http://localhost:30100/api/health
+curl http://localhost:20100/ai/health
+curl http://localhost:20100/api/health
 ```
 
 ---
 
 ## 4. 카카오 콘솔
 
-- Web 도메인: `http://localhost:30100`, `http://127.0.0.1:30100`, GCP 시 `http://EXTERNAL_IP:30100`
+- Web 도메인: `http://localhost:20100`, `http://127.0.0.1:20100`, GCP 시 `http://EXTERNAL_IP:20100`
 - JS 키 / REST 키 구분
 
 ---
 
 ## 5. GCP VM 메모
 
-- 방화벽 **tcp:30100**
-- **http://EXTERNAL_IP:30100** 로 접속 (HTTPS 미사용)
+- 방화벽 **tcp:20100** (필요 시 `20800`, `28000`, `25432`도 개방)
+- **http://EXTERNAL_IP:20100** 로 접속 (HTTPS 미사용)
 - Linux ADC 경로가 Windows `%APPDATA%`와 다름 → compose volume 수정
 - 대용량 CSV는 scp
 
@@ -80,7 +91,7 @@ docker compose -p moveai-mvp exec nginx head -20 /etc/nginx/conf.d/default.conf
 
 ## 7. 프로젝트 접두어
 
-컨테이너명 `mvp-moveai-*`, compose project `moveai-mvp` — 기존 3만번대 서비스와 격리.
+컨테이너명 `mvp-moveai-*`, compose project `moveai-mvp` — 기존 서비스와 포트·네트워크 격리.
 
 ---
 
@@ -91,11 +102,11 @@ docker compose -p moveai-mvp exec nginx head -20 /etc/nginx/conf.d/default.conf
 
 | 고친 곳 | 방식 | 반영 |
 |---------|------|------|
-| `frontend/` | compose | `:30100/` |
-| `frontend-admin/` | compose | `:30100/admin/` |
-| `backend-spring/` | compose | `:30100/api` |
-| `backend-ai/` | compose | `:30100/ai` |
-| `nginx/default.conf` | compose(restart) | :30100 |
+| `frontend/` | compose | `:20100/` |
+| `frontend-admin/` | compose | `:20100/admin/` |
+| `backend-spring/` | compose | `:20100/api` |
+| `backend-ai/` | compose | `:20100/ai` |
+| `nginx/default.conf` | compose(restart) | :20100 |
 | `vision-processor/` | **Cloud Run** | 인터넷 |
 | `matching-processor/` | **Cloud Run** | 인터넷 |
 | `tools/` | 없음 | 로컬 실행 |
@@ -170,9 +181,9 @@ gcloud run services update matching-processor \
 ### 8.3 확인
 
 ```bash
-curl http://localhost:30100/
-curl -I http://localhost:30100/admin/
-curl http://localhost:30100/ai/health
+curl http://localhost:20100/
+curl -I http://localhost:20100/admin/
+curl http://localhost:20100/ai/health
 
 curl https://vision-processor-xi6ooeq3ta-du.a.run.app/v1/trucks/T-000004
 curl -X POST -d '{}' -H 'Content-Type: application/json' \

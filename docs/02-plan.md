@@ -7,7 +7,7 @@
 
 ## 1. 완료
 
-- [x] Compose · Nginx 30100 · `moveainetwork`
+- [x] Compose · Nginx 20100 · `moveainetwork`
 - [x] 기사 게이트 (로그인·프로필·터미널 출도착)
 - [x] 하단 탭 배차목록 / 운행 / 정산 (항상 표시)
 - [x] 터미널 핀 · 장바구니 · 배차 확정 · 카카오 도로 경로
@@ -46,6 +46,6 @@
 ## 4. 로컬 준비
 
 1. `.env` — `VITE_KAKAO_JS_KEY`, `KAKAO_REST_KEY`
-2. 카카오 콘솔 도메인 `http://localhost:30100`
+2. 카카오 콘솔 도메인 `http://localhost:20100`
 3. `docker compose up -d --build`
 4. Gemini용 ADC (브리핑·비전 융합)

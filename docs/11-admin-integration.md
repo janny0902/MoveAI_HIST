@@ -10,7 +10,7 @@
 ## 1. 논리 구성
 
 ```
-브라우저 :30100
+브라우저 :20100
     → Nginx
          /       → frontend        (Vue3, 기사)
          /admin/ → frontend-admin  (React, 관리자)
@@ -71,16 +71,16 @@ backend-ai에 마운트한다. 관리자 쪽 `gcloud`와 **같은 파일**이다
 ```
 https://frontend-xi6ooeq3ta-du.a.run.app
 https://frontend-590544600586.asia-northeast3.run.app
-http://localhost:30100
-http://127.0.0.1:30100
+http://localhost:20100
+http://127.0.0.1:20100
 ```
 
-GCP VM에 올리면 `http://EXTERNAL_IP:30100` 추가.
+GCP VM에 올리면 `http://EXTERNAL_IP:20100` 추가.
 
 ```bash
 gcloud run services update matching-processor \
   --region asia-northeast3 --project moveai-504903 \
-  --update-env-vars 'CORS_ALLOW_ORIGINS=<기존;목록>;http://EXTERNAL_IP:30100'
+  --update-env-vars 'CORS_ALLOW_ORIGINS=<기존;목록>;http://EXTERNAL_IP:20100'
 # vision-processor 동일
 ```
 
@@ -116,7 +116,7 @@ location = /admin {
 
 - 끝의 `/`가 없으면 컨테이너가 `/admin/assets/...`를 받아 404.
 - `absolute_redirect off`가 없으면 리다이렉트에서 포트가 빠진다. nginx는 안에서 80을 듣고
-  밖으로 30100에 매핑돼 있어 `http://host/admin/`이 되고 브라우저가 80으로 간다.
+  밖으로 20100에 매핑돼 있어 `http://host/admin/`이 되고 브라우저가 80으로 간다.
 
 **3) index.html 상대경로** — `./config.js`, `./icon.svg`
 

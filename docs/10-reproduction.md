@@ -57,7 +57,7 @@ moveAI/
 
 ## 3. 완료 정의 (DoD)
 
-- [ ] `30100`에서 로그인→프로필→OD→3탭
+- [ ] `20100`에서 로그인→프로필→OD→3탭
 - [ ] propose 후 cargo-feed에 카드
 - [ ] accept 후 지도 경로 (키 있을 때)
 - [ ] upload 후 remaining 갱신 + `[1/3][2/3][3/3]` 로그
@@ -70,12 +70,12 @@ moveAI/
 ## 4. 테스트 커맨드 예
 
 ```bash
-curl -s http://localhost:30100/ai/health
-curl -s -X POST http://localhost:30100/api/drivers/login \
+curl -s http://localhost:20100/ai/health
+curl -s -X POST http://localhost:20100/api/drivers/login \
   -H "Content-Type: application/json" \
   -d '{"phone":"01012345678","truckNumber":"TEST100","driverName":"테스터"}'
 # 이미지
-curl -s -X POST http://localhost:30100/ai/analyze-image -F "file=@sample.jpg"
+curl -s -X POST http://localhost:20100/ai/analyze-image -F "file=@sample.jpg"
 ```
 
 ---

@@ -7,7 +7,7 @@
 ## 한눈에
 
 ```
-:30100 Nginx → Vue / React(/admin) / Spring(/api) / FastAPI(/ai) → PostgreSQL
+:20100 Nginx → Vue / React(/admin) / Spring(/api:20800) / FastAPI(/ai:28000) → PostgreSQL(:25432)
 잔여공간: Depth Anything V2 + OpenCV(박스/철벽) + Gemini Vision 융합
 브리핑·최적배차: Gemini
 지도: 카카오 JS + REST directions (구간 stitch)
