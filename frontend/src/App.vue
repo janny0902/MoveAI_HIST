@@ -6,9 +6,23 @@ const api = axios.create({ baseURL: '/api', timeout: 180000 })
 
 const gate = ref('login') // login | profile | route | app
 const tab = ref('cargo') // cargo | drive | ledger
-const busy = ref(false)
+const busy = reactive({ show: false, title: '', hint: '', percent: 0 })
+const toast = ref(null)
 const message = ref('')
-const session = reactive({
+const showLogs = ref(false)
+const logs = ref([])
+
+const loginForm = reactive({ truckNumber: '', phone: '', driverName: '' })
+const profileForm = reactive({
+  driverName: '',
+  capacityTons: 11,
+  capacityM3: 50,
+  vehicleType: '윙바디',
+  remainingVolumePercent: 100,
+})
+const routeForm = reactive({ originCode: '200', destinationCode: '001' })
+
+const me = reactive({
   truckId: null,
   driverName: '',
   phone: '',
@@ -16,266 +30,479 @@ const session = reactive({
   capacityTons: 11,
   capacityM3: 50,
   vehicleType: '윙바디',
-  originCode: '200',
-  destinationCode: '001',
+  originCode: '',
+  originName: '',
+  destinationCode: '',
+  destinationName: '',
   remainingVolumePercent: 100,
+  status: 'IDLE',
 })
 
 const stations = ref([])
 const feed = ref([])
-const ledger = ref({ entries: [], netProfit: 0, totalIncome: 0, totalExpense: 0, dailyEsgKg: 0 })
-const health = reactive({ spring: '', ai: '' })
+const ledger = ref({ entries: [], netProfit: 0, totalIncome: 0, totalExpense: 0, dailyEsgKg: 0, entryCount: 0 })
+const uploadGuide = ref('')
+const fileInput = ref(null)
 
-const occupied = computed(() => Math.max(0, 100 - (session.remainingVolumePercent || 0)))
+const occupied = computed(() => Math.max(0, 100 - Number(me.remainingVolumePercent || 0)))
+const plannedOccupiedDisplay = computed(() => occupied.value.toFixed(1))
+
+function formatWon(v) {
+  const n = Number(v || 0)
+  return `${n.toLocaleString('ko-KR')}원`
+}
+
+function pushLog(line) {
+  logs.value = [...logs.value, line].slice(-80)
+}
+
+function setBusy(show, title = '', hint = '', percent = 0) {
+  busy.show = show
+  busy.title = title
+  busy.hint = hint
+  busy.percent = percent
+}
+
+function applyTruck(data) {
+  me.truckId = data.truckId
+  me.driverName = data.driverName || me.driverName
+  me.phone = data.phone || me.phone
+  me.truckNumber = data.truckNumber || me.truckNumber
+  me.capacityTons = data.capacityTons ?? me.capacityTons
+  me.capacityM3 = data.capacityM3 ?? me.capacityM3
+  me.vehicleType = data.vehicleType || me.vehicleType
+  me.originCode = data.originCode || me.originCode
+  me.originName = data.originName || me.originName
+  me.destinationCode = data.destinationCode || me.destinationCode
+  me.destinationName = data.destinationName || me.destinationName
+  me.remainingVolumePercent = data.remainingVolumePercent ?? 100
+  me.status = data.status || me.status
+}
 
 function saveSession() {
-  sessionStorage.setItem('moveai_session', JSON.stringify(session))
+  sessionStorage.setItem('moveai_session', JSON.stringify({ ...me }))
 }
 
 function loadSession() {
   try {
     const raw = sessionStorage.getItem('moveai_session')
     if (!raw) return
-    Object.assign(session, JSON.parse(raw))
-    if (session.truckId) gate.value = 'app'
+    Object.assign(me, JSON.parse(raw))
+    if (me.truckId) {
+      gate.value = me.originCode && me.destinationCode ? 'app' : 'route'
+      if (!me.vehicleType) gate.value = 'profile'
+    }
   } catch (_) { /* ignore */ }
 }
 
-async function refreshHealth() {
-  try {
-    const s = await axios.get('/api/health')
-    health.spring = typeof s.data === 'string' ? s.data : 'ok'
-  } catch (e) {
-    health.spring = 'down'
-  }
-  try {
-    const a = await axios.get('/ai/health')
-    health.ai = a.data?.status || 'ok'
-  } catch (e) {
-    health.ai = 'down'
-  }
+function logout() {
+  sessionStorage.removeItem('moveai_session')
+  Object.assign(me, {
+    truckId: null, driverName: '', phone: '', truckNumber: '',
+    originCode: '', originName: '', destinationCode: '', destinationName: '',
+    remainingVolumePercent: 100, status: 'IDLE',
+  })
+  gate.value = 'login'
+  tab.value = 'cargo'
+  feed.value = []
+  logs.value = []
 }
 
-async function login() {
-  busy.value = true
+async function doLogin() {
+  if (!loginForm.phone || !loginForm.truckNumber) {
+    toast.value = '차량번호와 전화번호를 입력하세요'
+    return
+  }
+  setBusy(true, '접속 중', '기사 세션 확인', 30)
   message.value = ''
   try {
     const { data } = await api.post('/drivers/login', {
-      phone: session.phone,
-      truckNumber: session.truckNumber,
-      driverName: session.driverName || undefined,
+      phone: loginForm.phone,
+      truckNumber: loginForm.truckNumber,
+      driverName: loginForm.driverName || undefined,
     })
     applyTruck(data)
+    profileForm.driverName = me.driverName || loginForm.driverName
+    profileForm.capacityTons = me.capacityTons || 11
+    profileForm.capacityM3 = me.capacityM3 || 50
+    profileForm.vehicleType = me.vehicleType || '윙바디'
+    profileForm.remainingVolumePercent = me.remainingVolumePercent ?? 100
     saveSession()
     if (data.needProfile) gate.value = 'profile'
     else if (data.needRoute) gate.value = 'route'
-    else gate.value = 'app'
-    message.value = data.message || '로그인 완료'
+    else {
+      gate.value = 'app'
+      await Promise.all([loadFeed(), loadLedger()])
+    }
+    pushLog(data.message || '로그인 완료')
   } catch (e) {
-    message.value = e?.response?.data?.message || e.message
+    toast.value = e?.response?.data?.message || e.message
   } finally {
-    busy.value = false
+    setBusy(false)
   }
 }
 
-async function saveProfile() {
-  busy.value = true
+async function doProfile() {
+  setBusy(true, '차량 등록', '프로필 저장', 40)
   try {
-    const { data } = await api.post(`/drivers/${session.truckId}/profile`, {
-      driverName: session.driverName,
-      capacityTons: session.capacityTons,
-      capacityM3: session.capacityM3,
-      vehicleType: session.vehicleType,
-      remainingVolumePercent: session.remainingVolumePercent,
-    })
+    const { data } = await api.post(`/drivers/${me.truckId}/profile`, { ...profileForm })
     applyTruck(data)
     saveSession()
     gate.value = data.needRoute ? 'route' : 'app'
+    if (gate.value === 'app') await loadFeed()
   } catch (e) {
-    message.value = e.message
+    toast.value = e.message
   } finally {
-    busy.value = false
+    setBusy(false)
   }
 }
 
-async function saveRoute() {
-  busy.value = true
+async function doRoute() {
+  setBusy(true, '경로 저장', '출도착 터미널', 50)
   try {
-    const { data } = await api.post(`/drivers/${session.truckId}/route`, {
-      originCode: session.originCode,
-      destinationCode: session.destinationCode,
+    const { data } = await api.post(`/drivers/${me.truckId}/route`, {
+      originCode: routeForm.originCode,
+      destinationCode: routeForm.destinationCode,
     })
     applyTruck(data)
     saveSession()
     gate.value = 'app'
+    tab.value = 'cargo'
+    await loadFeed()
   } catch (e) {
-    message.value = e.message
+    toast.value = e.message
   } finally {
-    busy.value = false
+    setBusy(false)
   }
-}
-
-function applyTruck(data) {
-  session.truckId = data.truckId
-  session.driverName = data.driverName || session.driverName
-  session.phone = data.phone || session.phone
-  session.truckNumber = data.truckNumber || session.truckNumber
-  session.capacityTons = data.capacityTons ?? session.capacityTons
-  session.capacityM3 = data.capacityM3 ?? session.capacityM3
-  session.vehicleType = data.vehicleType || session.vehicleType
-  session.originCode = data.originCode || session.originCode
-  session.destinationCode = data.destinationCode || session.destinationCode
-  session.remainingVolumePercent = data.remainingVolumePercent ?? 100
 }
 
 async function loadStations() {
   const { data } = await api.get('/dispatch/stations')
   stations.value = data.stations || []
+  if (!routeForm.originCode && stations.value[0]) routeForm.originCode = stations.value[0].code
 }
 
 async function loadFeed() {
-  if (!session.truckId) return
-  const { data } = await api.get('/dispatch/cargo-feed', { params: { truckId: session.truckId } })
+  if (!me.truckId) return
+  const { data } = await api.get('/dispatch/cargo-feed', { params: { truckId: me.truckId } })
   feed.value = data.items || []
-  session.remainingVolumePercent = data.remainingVolumePercent ?? session.remainingVolumePercent
-  saveSession()
+  if (data.remainingVolumePercent != null) {
+    me.remainingVolumePercent = data.remainingVolumePercent
+    saveSession()
+  }
 }
 
 async function loadLedger() {
-  if (!session.truckId) return
-  const { data } = await api.get('/dispatch/ledger', { params: { truckId: session.truckId } })
+  if (!me.truckId) return
+  const { data } = await api.get('/dispatch/ledger', { params: { truckId: me.truckId } })
   ledger.value = data
 }
 
 async function onUpload(ev) {
   const file = ev.target.files?.[0]
-  if (!file || !session.truckId) return
-  busy.value = true
-  message.value = '공간 분석 중...'
+  if (!file || !me.truckId) return
+  setBusy(true, '상차 사진 분석', '잔여공간 측정 중', 15)
+  pushLog(`업로드: ${file.name}`)
   try {
     const form = new FormData()
     form.append('file', file)
-    form.append('truckId', String(session.truckId))
+    form.append('truckId', String(me.truckId))
+    setBusy(true, '상차 사진 분석', 'AI 파이프라인', 55)
     const { data } = await api.post('/load/upload', form)
-    session.remainingVolumePercent = data.remainingVolumePercent
+    me.remainingVolumePercent = data.remainingVolumePercent
+    uploadGuide.value = data.guide || ''
     saveSession()
-    message.value = (data.logs || []).join(' · ') || data.guide || '분석 완료'
+    const pipelineLogs = data.logs || []
+    pipelineLogs.forEach((l) => pushLog(l))
+    showLogs.value = true
+    toast.value = `잔여 ${Number(data.remainingVolumePercent).toFixed(1)}% · ${data.status || '분석 완료'}`
+    setBusy(true, '상차 사진 분석', '완료', 100)
   } catch (e) {
-    message.value = e.message
+    toast.value = e?.response?.data?.message || e.message
+    pushLog(`오류: ${toast.value}`)
   } finally {
-    busy.value = false
-    ev.target.value = ''
+    setTimeout(() => setBusy(false), 300)
+    if (fileInput.value) fileInput.value.value = ''
   }
+}
+
+function goDrive() {
+  tab.value = 'drive'
 }
 
 onMounted(async () => {
   loadSession()
-  await refreshHealth()
-  await loadStations().catch(() => {})
-  if (gate.value === 'app') {
-    await loadFeed().catch(() => {})
-    await loadLedger().catch(() => {})
+  try {
+    await loadStations()
+  } catch (_) { /* ignore */ }
+  if (gate.value === 'app' && me.truckId) {
+    await Promise.all([loadFeed().catch(() => {}), loadLedger().catch(() => {})])
   }
+  if (me.originCode) routeForm.originCode = me.originCode
+  if (me.destinationCode) routeForm.destinationCode = me.destinationCode
 })
 </script>
 
 <template>
-  <div class="shell">
-    <header class="top">
-      <div>
-        <strong>moveAI</strong>
-        <span class="muted"> · 초기 구축</span>
+  <div
+    class="kakao-app"
+    :class="{
+      'drive-lock': gate === 'app' && tab === 'drive',
+      'cargo-lock': gate === 'app' && tab === 'cargo',
+    }"
+  >
+    <div v-if="busy.show" class="busy-overlay">
+      <div class="busy-card shadow">
+        <p class="busy-title">{{ busy.title }}</p>
+        <div class="progress-track">
+          <div class="progress-fill" :style="{ width: busy.percent + '%' }"></div>
+        </div>
+        <p class="busy-sub">{{ busy.percent }}% · {{ busy.hint }}</p>
       </div>
-      <div class="muted">API {{ health.spring || '…' }} / AI {{ health.ai || '…' }}</div>
-    </header>
+    </div>
 
-    <main v-if="gate === 'login'" class="panel stack gate">
-      <h1>기사 로그인</h1>
-      <p class="muted">전화 + 트럭번호로 세션을 만듭니다.</p>
-      <input v-model="session.phone" placeholder="전화번호 (예: 01012345678)" />
-      <input v-model="session.truckNumber" placeholder="트럭번호 (예: TEST100)" />
-      <input v-model="session.driverName" placeholder="기사명 (선택)" />
-      <button :disabled="busy || !session.phone || !session.truckNumber" @click="login">로그인</button>
-      <p v-if="message" class="muted">{{ message }}</p>
-    </main>
+    <div v-if="toast" class="toast shadow" @click="toast = null">
+      <strong>알림</strong>
+      <p>{{ toast }}</p>
+    </div>
 
-    <main v-else-if="gate === 'profile'" class="panel stack gate">
-      <h1>차량 프로필</h1>
-      <input v-model="session.driverName" placeholder="기사명" />
-      <input v-model.number="session.capacityTons" type="number" placeholder="톤수" />
-      <input v-model.number="session.capacityM3" type="number" placeholder="m³" />
-      <input v-model="session.vehicleType" placeholder="차종" />
-      <button :disabled="busy" @click="saveProfile">저장</button>
-    </main>
+    <!-- 로그인 -->
+    <section v-if="gate === 'login'" class="gate p-16">
+      <h1 class="gate-brand">moveAI</h1>
+      <p class="gate-desc">차량번호와 전화번호로 접속합니다. (세션별 로그인)</p>
+      <label class="field">차량번호
+        <input v-model="loginForm.truckNumber" placeholder="예: 서울 12가 3456" />
+      </label>
+      <label class="field">전화번호
+        <input v-model="loginForm.phone" placeholder="01012345678" inputmode="tel" />
+      </label>
+      <label class="field">기사 이름 (선택)
+        <input v-model="loginForm.driverName" placeholder="김기사" />
+      </label>
+      <button class="k-btn primary w-full" :disabled="busy.show" @click="doLogin">접속</button>
+      <p v-if="message" class="desc subtle">{{ message }}</p>
+    </section>
 
-    <main v-else-if="gate === 'route'" class="panel stack gate">
-      <h1>출도착 터미널</h1>
-      <label class="muted">출발</label>
-      <select v-model="session.originCode">
-        <option v-for="s in stations" :key="'o'+s.code" :value="s.code">{{ s.code }} · {{ s.name }}</option>
-      </select>
-      <label class="muted">도착</label>
-      <select v-model="session.destinationCode">
-        <option v-for="s in stations" :key="'d'+s.code" :value="s.code">{{ s.code }} · {{ s.name }}</option>
-      </select>
-      <button :disabled="busy" @click="saveRoute">운행 시작 준비</button>
-    </main>
+    <!-- 차량 등록 -->
+    <section v-else-if="gate === 'profile'" class="gate p-16">
+      <h2>차량 정보 등록</h2>
+      <p class="gate-desc">{{ me.truckNumber }} · {{ me.phone }}</p>
+      <label class="field">기사 이름
+        <input v-model="profileForm.driverName" />
+      </label>
+      <label class="field">차량 톤수
+        <select v-model.number="profileForm.capacityTons">
+          <option :value="1">1톤</option>
+          <option :value="2.5">2.5톤</option>
+          <option :value="5">5톤</option>
+          <option :value="8">8톤</option>
+          <option :value="11">11톤</option>
+          <option :value="18">18톤</option>
+          <option :value="25">25톤</option>
+        </select>
+      </label>
+      <label class="field">차종
+        <select v-model="profileForm.vehicleType">
+          <option>윙바디</option>
+          <option>카고</option>
+          <option>탑차</option>
+          <option>트레일러</option>
+        </select>
+      </label>
+      <label class="field">현재 잔여공간 (%)
+        <input v-model.number="profileForm.remainingVolumePercent" type="number" min="0" max="100" />
+      </label>
+      <button class="k-btn primary w-full" :disabled="busy.show" @click="doProfile">등록 완료</button>
+    </section>
 
-    <main v-else class="app">
-      <section v-show="tab === 'cargo'" class="panel stack">
-        <h2>배차목록</h2>
-        <p class="muted">트럭 #{{ session.truckId }} · 잔여 {{ session.remainingVolumePercent?.toFixed?.(1) ?? session.remainingVolumePercent }}%</p>
-        <p v-if="!feed.length" class="muted">제안 물량 없음 (배차 propose는 다음 단계에서 연결)</p>
-        <ul>
-          <li v-for="item in feed" :key="item.requestId">{{ item.origin }} → {{ item.destination }}</li>
-        </ul>
-      </section>
+    <!-- 출도착 -->
+    <section v-else-if="gate === 'route'" class="gate p-16">
+      <h2>오늘 운행 경로</h2>
+      <p class="gate-desc">작업터미널을 선택해 운행 경로를 정합니다</p>
+      <label class="field">출발 터미널
+        <select v-model="routeForm.originCode" :disabled="!stations.length">
+          <option disabled value="">선택</option>
+          <option v-for="s in stations" :key="'ro-' + s.code" :value="s.code">{{ s.code }} · {{ s.name }}</option>
+        </select>
+      </label>
+      <label class="field">도착 터미널
+        <select v-model="routeForm.destinationCode" :disabled="!stations.length">
+          <option disabled value="">선택</option>
+          <option v-for="s in stations" :key="'rd-' + s.code" :value="s.code">{{ s.code }} · {{ s.name }}</option>
+        </select>
+      </label>
+      <button
+        class="k-btn primary w-full"
+        :disabled="busy.show || !routeForm.originCode || !routeForm.destinationCode"
+        @click="doRoute"
+      >경로 저장 후 시작</button>
+    </section>
 
-      <section v-show="tab === 'drive'" class="panel stack">
-        <h2>운행</h2>
-        <p class="muted">{{ session.originCode }} → {{ session.destinationCode }} · 적재 {{ occupied.toFixed(1) }}%</p>
-        <label class="upload">
-          상차 사진 업로드
-          <input type="file" accept="image/*" @change="onUpload" />
-        </label>
-        <p v-if="message" class="muted">{{ message }}</p>
-      </section>
+    <!-- 메인 -->
+    <template v-else>
+      <header class="k-header">
+        <div class="top-nav">
+          <span class="brand">moveAI</span>
+          <div class="me-chip">
+            <span>{{ me.driverName || '기사' }}</span>
+            <span class="sub">{{ me.truckNumber }}</span>
+          </div>
+          <button class="link-btn" @click="logout">로그아웃</button>
+        </div>
+        <p class="route-bar" @click="gate = 'route'">
+          {{ me.originName || '출발' }} → {{ me.destinationName || '도착' }}
+          · 계획 적재 {{ plannedOccupiedDisplay }}%
+          <span class="edit">변경</span>
+        </p>
+      </header>
 
-      <section v-show="tab === 'ledger'" class="panel stack">
-        <h2>정산</h2>
-        <p>순이익 {{ ledger.netProfit?.toLocaleString?.() ?? 0 }}원 · ESG {{ ledger.dailyEsgKg || 0 }}kg</p>
-        <p v-if="!(ledger.entries || []).length" class="muted">정산 이력 없음</p>
-      </section>
+      <main class="k-main">
+        <!-- 배차목록 -->
+        <section v-show="tab === 'cargo'" class="tab-cargo">
+          <div class="cargo-top">
+            <h3>복화 배차</h3>
+            <div class="mode-inline">
+              <button type="button" class="mode-chip sm on">수동</button>
+              <button type="button" class="mode-chip sm" disabled>LLM</button>
+            </div>
+            <button type="button" class="cart-badge empty">장바구니 0</button>
+          </div>
 
-      <nav class="tabs">
-        <button :class="{ on: tab === 'cargo' }" @click="tab = 'cargo'; loadFeed()">배차목록</button>
-        <button :class="{ on: tab === 'drive' }" @click="tab = 'drive'">운행</button>
-        <button :class="{ on: tab === 'ledger' }" @click="tab = 'ledger'; loadLedger()">정산</button>
+          <div class="px-12 pt-8">
+            <div class="status-card shadow mb-16">
+              <div class="truck-info">
+                <span class="tag">{{ me.vehicleType || '차량' }}</span>
+                <span class="number">{{ me.capacityTons }}t · {{ me.capacityM3 }}m³</span>
+                <span class="status-badge" :class="me.status">{{ me.status || 'IDLE' }}</span>
+              </div>
+              <div class="label-row">
+                <span>잔여 공간</span>
+                <span>{{ Number(me.remainingVolumePercent).toFixed(1) }}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="fill" :style="{ width: Math.min(100, occupied) + '%' }"></div>
+              </div>
+              <div class="label-row sub">
+                <span>적재율</span>
+                <span>{{ occupied.toFixed(1) }}%</span>
+              </div>
+            </div>
+
+            <div v-if="!feed.length" class="empty-box shadow">
+              제안 물량이 없습니다.<br />
+              <span class="desc subtle">배차 propose 연동 후 여기에 카드가 쌓입니다.</span>
+            </div>
+            <article
+              v-for="item in feed"
+              :key="item.requestId"
+              class="cargo-card shadow"
+            >
+              <div class="cc-route">{{ item.origin }} → {{ item.destination }}</div>
+              <div class="cc-meta">
+                <span>{{ item.boxCount || 0 }}박스</span>
+                <span class="plus">{{ formatWon(item.proposedFee) }}</span>
+                <span v-if="item.fillPercentOf11t != null">점유 {{ item.fillPercentOf11t }}%</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- 운행 -->
+        <section v-show="tab === 'drive'" class="tab-drive">
+          <div class="drive-stage">
+            <div class="map-container">
+              <div class="map-placeholder">
+                <p>카카오맵 연동 예정</p>
+                <p class="hint">VITE_KAKAO_JS_KEY 설정 후 지도가 표시됩니다</p>
+              </div>
+              <div class="navi-overlay">
+                <div class="direction">
+                  <span>{{ me.originName || me.originCode || '출발' }}</span>
+                  <span>→</span>
+                  <span>{{ me.destinationName || me.destinationCode || '도착' }}</span>
+                </div>
+                <p class="next-step">잔여 {{ Number(me.remainingVolumePercent).toFixed(1) }}% · 계획 적재 {{ plannedOccupiedDisplay }}%</p>
+              </div>
+            </div>
+            <div class="drive-dock">
+              <div class="stop-panel shadow">
+                <div class="stop-now">
+                  <span class="stop-phase">운행 준비</span>
+                  <span class="stop-idx">트럭 #{{ me.truckId }}</span>
+                </div>
+                <div class="stop-od">
+                  <div class="stop-od-row">
+                    <span class="od-tag from">출발</span>
+                    <strong>{{ me.originName || me.originCode || '-' }}</strong>
+                  </div>
+                  <div class="stop-od-arrow">↓</div>
+                  <div class="stop-od-row">
+                    <span class="od-tag to">도착</span>
+                    <strong>{{ me.destinationName || me.destinationCode || '-' }}</strong>
+                  </div>
+                </div>
+                <div class="stop-actions">
+                  <button type="button" class="k-btn outline photo-btn need" @click="fileInput?.click()">
+                    상차 사진
+                  </button>
+                  <input ref="fileInput" type="file" accept="image/*" hidden @change="onUpload" />
+                </div>
+                <p v-if="uploadGuide" class="stop-hint">{{ uploadGuide }}</p>
+                <p v-else class="stop-hint muted">상차 사진을 올리면 잔여공간이 갱신됩니다.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 정산 -->
+        <section v-if="tab === 'ledger'" class="tab-content p-16">
+          <div class="k-card shadow mb-16">
+            <h3>나의 운행 정산</h3>
+            <p class="desc subtle mb-8">배차 건별로 터미널·물량·금액을 확인할 수 있습니다.</p>
+            <div class="ledger-grid">
+              <div class="item"><label>합계 수입</label><p class="val plus">{{ formatWon(ledger.totalIncome) }}</p></div>
+              <div class="item"><label>합계 지출</label><p class="val">{{ formatWon(ledger.totalExpense) }}</p></div>
+              <div class="item"><label>순수익</label><p class="val plus">{{ formatWon(ledger.netProfit) }}</p></div>
+              <div class="item"><label>ESG</label><p class="val esg">{{ ledger.dailyEsgKg || 0 }}kg</p></div>
+            </div>
+            <h4 class="ledger-sub">건별 내역 ({{ ledger.entryCount || ledger.entries?.length || 0 }}건)</h4>
+            <div class="ledger-list" v-if="ledger.entries?.length">
+              <article class="ledger-row" v-for="(e, idx) in ledger.entries" :key="e.id || idx">
+                <div class="route">{{ e.route || '운행' }}</div>
+                <div class="amt">
+                  <span class="plus">운임 +{{ formatWon(e.income) }}</span>
+                  <span>유류 {{ formatWon(e.expense) }}</span>
+                  <span class="net">순 {{ formatWon(e.netProfit) }}</span>
+                </div>
+              </article>
+            </div>
+            <p v-else class="desc subtle">수락·배차된 건이 없습니다. 복화 배차 후 운행을 완료하면 여기에 쌓입니다.</p>
+          </div>
+        </section>
+
+        <div v-show="tab !== 'cargo'" class="card log-container shadow">
+          <div class="log-header" @click="showLogs = !showLogs">
+            <span>처리 과정</span>
+            <span class="log-toggle">{{ showLogs ? '접기 ▲' : '펼치기 ▼' }}</span>
+          </div>
+          <div v-if="showLogs" class="log-content">
+            <p v-for="(log, i) in logs" :key="i">> {{ log }}</p>
+            <p v-if="!logs.length">> 아직 로그가 없습니다</p>
+          </div>
+        </div>
+      </main>
+
+      <nav class="k-bottom-nav shadow">
+        <div class="nav-item" :class="{ active: tab === 'cargo' }" @click="tab = 'cargo'; loadFeed()">
+          <span class="label">배차목록</span>
+        </div>
+        <div class="nav-item" :class="{ active: tab === 'drive' }" @click="goDrive">
+          <span class="label">운행</span>
+        </div>
+        <div class="nav-item" :class="{ active: tab === 'ledger' }" @click="tab = 'ledger'; loadLedger()">
+          <span class="label">정산</span>
+        </div>
       </nav>
-    </main>
+    </template>
   </div>
 </template>
-
-<style scoped>
-.shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
-.top {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0.9rem 1rem; border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, #152029, #0f1720);
-}
-.gate { margin: 2rem auto; width: min(420px, calc(100% - 2rem)); }
-.app { padding: 1rem 1rem 5.5rem; }
-.tabs {
-  position: fixed; left: 0; right: 0; bottom: 0;
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
-  padding: 0.75rem; background: rgba(15, 23, 32, 0.96);
-  border-top: 1px solid var(--line);
-}
-.tabs button { background: #243140; }
-.tabs button.on { background: var(--accent); }
-.upload {
-  display: grid; gap: 0.4rem; padding: 0.8rem; border: 1px dashed var(--line); border-radius: 12px;
-}
-.upload input { border: 0; padding: 0; background: transparent; }
-h1, h2 { margin: 0; }
-</style>
