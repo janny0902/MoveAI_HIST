@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 set -eu
 
 CONFIG_PATH=/usr/share/nginx/html/config.js

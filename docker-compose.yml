@@ -1,5 +1,6 @@
-# 기존 moveAI(30100) / jadiss 등과 병행 — 네트워크·컨테이너·볼륨·호스트 포트 전부 분리
-# 외부 접속: http://HOST:20100  (30100 금지)
+# HIST 전용 스택 (기존 30100 moveai-mvp 와 병행)
+# 기동: docker compose up -d --build
+# 접속: http://HOST:20100
 name: moveai-hist
 
 networks:
@@ -18,16 +19,19 @@ services:
       - hist_pgdata:/var/lib/postgresql/data
       - ./db-init/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
-      # 25432는 jadiss-game-db 등이 사용 → HIST 전용
+      # 25432 등은 타 스택이 쓸 수 있어 HIST 전용 포트 사용
       - "21432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U moveai -d moveai"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 10s
     networks:
       - moveainetwork
+    restart: unless-stopped
 
+  # CSV 없어도 항상 exit 0. 실패해도 spring/ai 기동을 막지 않음
   db-import:
     image: postgres:15-alpine
     container_name: hist-moveai-db-import
@@ -54,8 +58,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      db-import:
-        condition: service_completed_successfully
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/moveai
       SPRING_DATASOURCE_USERNAME: moveai
@@ -66,14 +68,12 @@ services:
       - "21808:8080"
     networks:
       - moveainetwork
+    restart: unless-stopped
 
   backend-ai:
     build:
       context: ./backend-ai
     container_name: hist-moveai-backend-ai
-    depends_on:
-      db-import:
-        condition: service_completed_successfully
     environment:
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-moveai-504907}
       GCP_LOCATION: ${GCP_LOCATION:-us-central1}
@@ -84,13 +84,14 @@ services:
       HF_HOME: /tmp/huggingface
       TRUCK_CAPACITY_M3: "50"
     volumes:
+      # .env 에 GOOGLE_ADC_PATH= 빈값 넣지 말 것 (기본 placeholder 사용)
       - ${GOOGLE_ADC_PATH:-./backend-ai/.adc-placeholder.json}:/gcp/adc.json:ro
       - ./Volumetric data:/data/volumetric:ro
     ports:
-      # 28000/28080대는 다른 스택과 겹칠 수 있음 → HIST 전용
       - "21800:8000"
     networks:
       - moveainetwork
+    restart: unless-stopped
 
   frontend:
     build:
@@ -100,6 +101,7 @@ services:
     container_name: hist-moveai-frontend
     networks:
       - moveainetwork
+    restart: unless-stopped
 
   frontend-admin:
     build:
@@ -111,6 +113,7 @@ services:
       KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
     networks:
       - moveainetwork
+    restart: unless-stopped
 
   nginx:
     image: nginx:1.27-alpine
@@ -126,6 +129,7 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - moveainetwork
+    restart: unless-stopped
 
 volumes:
   hist_pgdata:

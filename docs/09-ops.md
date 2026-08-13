@@ -26,10 +26,12 @@ VERTEX_ENDPOINT_ID=
 ## 2. Compose 기동
 
 ```bash
-docker compose -p moveai-hist up -d --build
-# 접속 http://localhost:20100
-# GCP: http://EXTERNAL_IP:20100
-# 기존 30100 스택과 병행 가능 (네트워크 moveainetwork-hist 로 분리)
+# 권장: 정리 후 기동 스크립트
+chmod +x scripts/up-hist.sh && ./scripts/up-hist.sh
+
+# 또는
+docker compose up -d --build
+# 접속 http://localhost:20100  (30100 스택과 병행, DB 분리)
 ```
 
 ### 호스트 포트 — 30100·jadiss 등과 분리
@@ -49,7 +51,7 @@ GCP에서 둘 다 띄울 때: 방화벽 `tcp:30100` + `tcp:20100`.
 - 컨테이너: `hist-moveai-*`
 - 컨테이너 간 호출은 내부 포트 유지 (`db:5432`, `backend-ai:8000`)
 
-의존 순서: db healthy → db-import 완료 → spring/ai start.
+의존 순서: db healthy → spring/ai 기동 (db-import는 병렬·실패해도 스택 유지).
 
 체적 CSV 없으면 import가 그룹을 못 채울 수 있음 → `Volumetric data/` 확인.
 
