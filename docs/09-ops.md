@@ -32,14 +32,17 @@ docker compose -p moveai-hist up -d --build
 # 기존 30100 스택과 병행 가능 (네트워크 moveainetwork-hist 로 분리)
 ```
 
-### 호스트 포트 (2만번대) — 30100 스택과 분리
+### 호스트 포트 — 30100·jadiss 등과 분리
 
-| 서비스 | HIST (이 저장소) | 기존(예) |
-|--------|------------------|----------|
-| nginx | **20100** | 30100 |
-| backend-spring | **20800** | (기존 포트) |
-| backend-ai | **28000** | (기존 포트) |
-| PostgreSQL | **25432** | (기존 포트) |
+| 서비스 | HIST (이 저장소) | 피해야 할 예 |
+|--------|------------------|--------------|
+| nginx (외부) | **20100** | 30100 (기존 moveAI) |
+| backend-spring | **21808** | 8080 직접 노출 |
+| backend-ai | **21800** | 28080 등 |
+| PostgreSQL | **21432** | 25432 (jadiss-game-db 등) |
+
+GCP에서 둘 다 띄울 때: 방화벽 `tcp:30100` + `tcp:20100`.  
+브라우저: 기존 시연=`:30100`, HIST=`:20100`.
 
 - Compose project: `moveai-hist`
 - 네트워크: `moveainetwork-hist` (기존 `moveainetwork`와 DNS 분리)
@@ -70,7 +73,7 @@ curl http://localhost:20100/api/health
 
 ## 5. GCP VM 메모
 
-- 방화벽 **tcp:20100** (필요 시 `20800`, `28000`, `25432`도 개방)
+- 방화벽 **tcp:20100** (필요 시 `21808`, `21800`, `21432`도 개방)
 - **http://EXTERNAL_IP:20100** 로 접속 (HTTPS 미사용)
 - Linux ADC 경로가 Windows `%APPDATA%`와 다름 → compose volume 수정
 - 대용량 CSV는 scp

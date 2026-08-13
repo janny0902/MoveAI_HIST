@@ -4,7 +4,8 @@
 
 해커톤 제출 저장소: [janny0902/MoveAI_HIST](https://github.com/janny0902/MoveAI_HIST)
 
-로컬: `http://localhost:20100` · 기사 앱 `/` · 관리자 `/admin`
+접속: `http://localhost:20100` · GCP `http://EXTERNAL_IP:20100`  
+(기존 시연 스택 `30100`과 **동시 기동** — 이 저장소는 **20100만** 사용)
 
 ---
 
@@ -17,12 +18,12 @@
 ## 구성
 
 ```
-:20100 Nginx (moveainetwork-hist, 30100 스택과 병행)
+:20100 Nginx (moveainetwork-hist)
   /        Vue3 기사 앱
-  /admin   React 관리자 (적재 배정 시뮬)
-  /api     Spring Boot   (:20800 직접)
-  /ai      FastAPI       (:28000 직접)
-           PostgreSQL    (:25432 직접)
+  /admin   React 관리자
+  /api     Spring Boot   (호스트 직접 :21808)
+  /ai      FastAPI       (호스트 직접 :21800)
+           PostgreSQL    (호스트 직접 :21432)
 ```
 
 | 역할 | 기술 |

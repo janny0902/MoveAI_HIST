@@ -1,9 +1,9 @@
-# 30100 기존 스택과 병행용 — 네트워크/컨테이너/볼륨/포트를 전부 분리
+# 기존 moveAI(30100) / jadiss 등과 병행 — 네트워크·컨테이너·볼륨·호스트 포트 전부 분리
+# 외부 접속: http://HOST:20100  (30100 금지)
 name: moveai-hist
 
 networks:
   moveainetwork:
-    # RFP의 moveainetwork와 개념은 같되, 기존 30100 스택과 DNS 충돌 방지
     name: moveainetwork-hist
 
 services:
@@ -18,7 +18,8 @@ services:
       - hist_pgdata:/var/lib/postgresql/data
       - ./db-init/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
-      - "25432:5432"
+      # 25432는 jadiss-game-db 등이 사용 → HIST 전용
+      - "21432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U moveai -d moveai"]
       interval: 5s
@@ -62,7 +63,7 @@ services:
       AI_BASE_URL: http://backend-ai:8000
       KAKAO_REST_KEY: ${KAKAO_REST_KEY:-}
     ports:
-      - "20800:8080"
+      - "21808:8080"
     networks:
       - moveainetwork
 
@@ -86,7 +87,8 @@ services:
       - ${GOOGLE_ADC_PATH:-./backend-ai/.adc-placeholder.json}:/gcp/adc.json:ro
       - ./Volumetric data:/data/volumetric:ro
     ports:
-      - "28000:8000"
+      # 28000/28080대는 다른 스택과 겹칠 수 있음 → HIST 전용
+      - "21800:8000"
     networks:
       - moveainetwork
 

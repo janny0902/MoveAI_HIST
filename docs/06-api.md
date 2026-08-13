@@ -2,7 +2,7 @@
 
 > SpringDoc 미사용 MVP. 이 문서가 **스웨거 대체 SSOT**다.  
 > Base (외부): `http://localhost:20100`  
-> Spring 직접(호스트): `http://localhost:20800` · FastAPI: `http://localhost:28000`  
+> Spring 직접(호스트): `http://localhost:21808` · FastAPI: `http://localhost:21800`  
 > 컨테이너 내부: `http://backend-spring:8080` / `http://backend-ai:8000`
 
 ---
