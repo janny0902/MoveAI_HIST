@@ -38,7 +38,7 @@ docker compose up -d --build
 
 | 서비스 | HIST (이 저장소) | 피해야 할 예 |
 |--------|------------------|--------------|
-| nginx (외부) | **20100** | 30100 (기존 moveAI) |
+| frontend(=게이트웨이) | **20100** | 30100 (기존 moveAI nginx) |
 | backend-spring | **21808** | 8080 직접 노출 |
 | backend-ai | **21800** | 28080 등 |
 | PostgreSQL | **21432** | 25432 (jadiss-game-db 등) |

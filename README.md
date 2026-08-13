@@ -18,12 +18,13 @@
 ## 구성
 
 ```
-:20100 Nginx (moveainetwork-hist)
+:20100 frontend nginx (게이트웨이, hist-moveai-nginx 없음)
   /        Vue3 기사 앱
-  /admin   React 관리자
-  /api     Spring Boot   (호스트 직접 :21808)
-  /ai      FastAPI       (호스트 직접 :21800)
-           PostgreSQL    (호스트 직접 :21432)
+  /admin   → frontend-admin
+  /api     → Spring (:21808)
+  /ai      → FastAPI (:21800)
+           PostgreSQL (:21432)
+네트워크: moveainetwork-hist (30100의 moveainetwork 와 분리)
 ```
 
 | 역할 | 기술 |

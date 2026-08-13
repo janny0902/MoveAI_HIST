@@ -28,8 +28,7 @@ Spring이 FastAPI를 **내부 URL**로 호출한다.
 
 | Service | Container | 호스트 포트 | 역할 |
 |---------|-----------|-------------|------|
-| nginx | hist-moveai-nginx | **20100** | ALB (외부 유일 진입) |
-| frontend | hist-moveai-frontend | (내부) | 기사 Vue SPA |
+| frontend | hist-moveai-frontend | **20100** | 기사 Vue + 게이트웨이(`/api`,`/ai`,`/admin`) |
 | frontend-admin | hist-moveai-frontend-admin | (내부) | 관리자 React |
 | backend-spring | hist-moveai-backend-spring | **21808** | 도메인 API |
 | backend-ai | hist-moveai-backend-ai | **21800** | 공간 AI + Gemini |

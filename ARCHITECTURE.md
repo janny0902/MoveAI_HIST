@@ -7,7 +7,8 @@
 ## 한눈에
 
 ```
-:20100 Nginx → Vue / React(/admin) / Spring(/api:21808) / FastAPI(/ai:21800) → PostgreSQL(:21432)
+:20100 frontend(nginx) → Vue · /admin→React · /api→Spring:21808 · /ai→AI:21800 → PG:21432  
+(별도 hist-moveai-nginx 없음 · 네트워크 moveainetwork-hist)
 잔여공간: Depth Anything V2 + OpenCV(박스/철벽) + Gemini Vision 융합
 브리핑·최적배차: Gemini
 지도: 카카오 JS + REST directions (구간 stitch)

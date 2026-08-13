@@ -1,6 +1,6 @@
 # HIST 전용 스택 (기존 30100 moveai-mvp 와 병행)
 # 기동: docker compose up -d --build
-# 접속: http://HOST:20100
+# 접속: http://HOST:20100  (별도 gateway nginx 없음 → frontend가 20100)
 name: moveai-hist
 
 networks:
@@ -19,7 +19,6 @@ services:
       - hist_pgdata:/var/lib/postgresql/data
       - ./db-init/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
-      # 25432 등은 타 스택이 쓸 수 있어 HIST 전용 포트 사용
       - "21432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U moveai -d moveai"]
@@ -31,7 +30,6 @@ services:
       - moveainetwork
     restart: unless-stopped
 
-  # CSV 없어도 항상 exit 0. 실패해도 spring/ai 기동을 막지 않음
   db-import:
     image: postgres:15-alpine
     container_name: hist-moveai-db-import
@@ -62,7 +60,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/moveai
       SPRING_DATASOURCE_USERNAME: moveai
       SPRING_DATASOURCE_PASSWORD: moveai
-      AI_BASE_URL: http://backend-ai:8000
+      AI_BASE_URL: http://hist-moveai-backend-ai:8000
       KAKAO_REST_KEY: ${KAKAO_REST_KEY:-}
     ports:
       - "21808:8080"
@@ -84,21 +82,10 @@ services:
       HF_HOME: /tmp/huggingface
       TRUCK_CAPACITY_M3: "50"
     volumes:
-      # .env 에 GOOGLE_ADC_PATH= 빈값 넣지 말 것 (기본 placeholder 사용)
       - ${GOOGLE_ADC_PATH:-./backend-ai/.adc-placeholder.json}:/gcp/adc.json:ro
       - ./Volumetric data:/data/volumetric:ro
     ports:
       - "21800:8000"
-    networks:
-      - moveainetwork
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
-    container_name: hist-moveai-frontend
     networks:
       - moveainetwork
     restart: unless-stopped
@@ -115,18 +102,19 @@ services:
       - moveainetwork
     restart: unless-stopped
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: hist-moveai-nginx
+  # 게이트웨이 역할: 호스트 20100 → 이 컨테이너 (hist-moveai-nginx 제거)
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
+    container_name: hist-moveai-frontend
     depends_on:
-      - frontend
-      - frontend-admin
       - backend-spring
       - backend-ai
+      - frontend-admin
     ports:
       - "20100:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - moveainetwork
     restart: unless-stopped
