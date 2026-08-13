@@ -17,7 +17,7 @@
 ## 구성
 
 ```
-:20100 Nginx (moveainetwork)
+:20100 Nginx (moveainetwork-hist, 30100 스택과 병행)
   /        Vue3 기사 앱
   /admin   React 관리자 (적재 배정 시뮬)
   /api     Spring Boot   (:20800 직접)
@@ -92,4 +92,4 @@ docker compose up -d --build
 
 ## 요구 스택 (RFP)
 
-Vue3 · Spring Boot · FastAPI · PostgreSQL · Nginx · Docker Compose · 포트 **20100** · 네트워크 `moveainetwork`
+Vue3 · Spring Boot · FastAPI · PostgreSQL · Nginx · Docker Compose · 포트 **20100** · 네트워크 `moveainetwork-hist`

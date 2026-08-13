@@ -14,7 +14,7 @@
 운행 중 복화: 20km · 동일 도착 권역 · 계획 잔여 · 도착 앞 경유
 ```
 
-네트워크: `moveainetwork` · Compose: `moveai-mvp`
+네트워크: `moveainetwork-hist` · Compose: `moveai-hist` (기존 30100과 병행)
 
 `/admin`은 **적재 배정 시뮬**(CBM/중량). 기사 위치 디스패치가 아니다.  
 [`docs/11-admin-integration.md`](docs/11-admin-integration.md)

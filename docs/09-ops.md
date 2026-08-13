@@ -26,21 +26,25 @@ VERTEX_ENDPOINT_ID=
 ## 2. Compose 기동
 
 ```bash
-docker compose -p moveai-mvp up -d --build
+docker compose -p moveai-hist up -d --build
 # 접속 http://localhost:20100
 # GCP: http://EXTERNAL_IP:20100
+# 기존 30100 스택과 병행 가능 (네트워크 moveainetwork-hist 로 분리)
 ```
 
-### 호스트 포트 (2만번대)
+### 호스트 포트 (2만번대) — 30100 스택과 분리
 
-| 서비스 | 호스트 | 컨테이너 내부 |
-|--------|--------|----------------|
-| nginx (앱 진입) | **20100** | 80 |
-| backend-spring | **20800** | 8080 |
-| backend-ai | **28000** | 8000 |
-| PostgreSQL | **25432** | 5432 |
+| 서비스 | HIST (이 저장소) | 기존(예) |
+|--------|------------------|----------|
+| nginx | **20100** | 30100 |
+| backend-spring | **20800** | (기존 포트) |
+| backend-ai | **28000** | (기존 포트) |
+| PostgreSQL | **25432** | (기존 포트) |
 
-컨테이너 간 호출은 서비스명+내부 포트 유지 (`db:5432`, `backend-ai:8000`).
+- Compose project: `moveai-hist`
+- 네트워크: `moveainetwork-hist` (기존 `moveainetwork`와 DNS 분리)
+- 컨테이너: `hist-moveai-*`
+- 컨테이너 간 호출은 내부 포트 유지 (`db:5432`, `backend-ai:8000`)
 
 의존 순서: db healthy → db-import 완료 → spring/ai start.
 
@@ -74,9 +78,9 @@ curl http://localhost:20100/api/health
 nginx가 **Welcome to nginx!** 만 보이면 `default.conf` 마운트가 안 된 것:
 
 ```bash
-docker compose -p moveai-mvp up -d --force-recreate nginx
-docker compose -p moveai-mvp exec nginx head -20 /etc/nginx/conf.d/default.conf
-# proxy_pass http://frontend 가 보여야 함
+docker compose -p moveai-hist up -d --force-recreate nginx
+docker compose -p moveai-hist exec nginx head -30 /etc/nginx/conf.d/default.conf
+# proxy_pass http://hist-moveai-frontend 가 보여야 함
 ```
 
 ---
@@ -91,7 +95,8 @@ docker compose -p moveai-mvp exec nginx head -20 /etc/nginx/conf.d/default.conf
 
 ## 7. 프로젝트 접두어
 
-컨테이너명 `mvp-moveai-*`, compose project `moveai-mvp` — 기존 서비스와 포트·네트워크 격리.
+컨테이너명 `hist-moveai-*`, compose project `moveai-hist`, 네트워크 `moveainetwork-hist` —
+기존 30100(`moveainetwork`)과 포트·DNS·볼륨을 격리해서 병행 기동.
 
 ---
 

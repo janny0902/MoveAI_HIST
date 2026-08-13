@@ -1,19 +1,21 @@
-name: moveai-mvp
+# 30100 기존 스택과 병행용 — 네트워크/컨테이너/볼륨/포트를 전부 분리
+name: moveai-hist
 
 networks:
   moveainetwork:
-    name: moveainetwork
+    # RFP의 moveainetwork와 개념은 같되, 기존 30100 스택과 DNS 충돌 방지
+    name: moveainetwork-hist
 
 services:
   db:
     image: postgres:15-alpine
-    container_name: mvp-moveai-db
+    container_name: hist-moveai-db
     environment:
       POSTGRES_DB: moveai
       POSTGRES_USER: moveai
       POSTGRES_PASSWORD: moveai
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - hist_pgdata:/var/lib/postgresql/data
       - ./db-init/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
       - "25432:5432"
@@ -27,7 +29,7 @@ services:
 
   db-import:
     image: postgres:15-alpine
-    container_name: mvp-moveai-db-import
+    container_name: hist-moveai-db-import
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +49,7 @@ services:
   backend-spring:
     build:
       context: ./backend-spring
-    container_name: mvp-moveai-backend-spring
+    container_name: hist-moveai-backend-spring
     depends_on:
       db:
         condition: service_healthy
@@ -67,7 +69,7 @@ services:
   backend-ai:
     build:
       context: ./backend-ai
-    container_name: mvp-moveai-backend-ai
+    container_name: hist-moveai-backend-ai
     depends_on:
       db-import:
         condition: service_completed_successfully
@@ -81,8 +83,6 @@ services:
       HF_HOME: /tmp/huggingface
       TRUCK_CAPACITY_M3: "50"
     volumes:
-      # 키가 준비되면 GOOGLE_ADC_PATH를 실제 ADC 경로로 바꾸세요.
-      # Windows 예: C:/Users/<you>/AppData/Roaming/gcloud/application_default_credentials.json
       - ${GOOGLE_ADC_PATH:-./backend-ai/.adc-placeholder.json}:/gcp/adc.json:ro
       - ./Volumetric data:/data/volumetric:ro
     ports:
@@ -95,14 +95,14 @@ services:
       context: ./frontend
       args:
         VITE_KAKAO_JS_KEY: ${VITE_KAKAO_JS_KEY:-}
-    container_name: mvp-moveai-frontend
+    container_name: hist-moveai-frontend
     networks:
       - moveainetwork
 
   frontend-admin:
     build:
       context: ./frontend-admin
-    container_name: mvp-moveai-frontend-admin
+    container_name: hist-moveai-frontend-admin
     environment:
       VISION_BASE_URL: ${ADMIN_VISION_BASE_URL:-https://vision-processor-xi6ooeq3ta-du.a.run.app}
       MATCHING_BASE_URL: ${ADMIN_MATCHING_BASE_URL:-https://matching-processor-xi6ooeq3ta-du.a.run.app}
@@ -112,7 +112,7 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: mvp-moveai-nginx
+    container_name: hist-moveai-nginx
     depends_on:
       - frontend
       - frontend-admin
@@ -126,4 +126,5 @@ services:
       - moveainetwork
 
 volumes:
-  pgdata:
+  hist_pgdata:
+    name: moveai-hist-pgdata

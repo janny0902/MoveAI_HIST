@@ -7,7 +7,7 @@
 
 ## 1. 완료
 
-- [x] Compose · Nginx 20100 · `moveainetwork`
+- [x] Compose · Nginx 20100 · `moveainetwork-hist` (30100과 병행)
 - [x] 기사 게이트 (로그인·프로필·터미널 출도착)
 - [x] 하단 탭 배차목록 / 운행 / 정산 (항상 표시)
 - [x] 터미널 핀 · 장바구니 · 배차 확정 · 카카오 도로 경로

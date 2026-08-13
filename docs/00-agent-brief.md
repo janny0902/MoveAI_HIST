@@ -16,7 +16,7 @@
 | 관리자 | React `/admin` (적재 시뮬) |
 | 도메인 | Spring Boot 3, JPA, PostgreSQL |
 | AI | FastAPI · Depth Anything · OpenCV · Gemini Vision 융합 · YOLO-seg |
-| 인프라 | Docker Compose, Nginx, **20100**, `moveainetwork` |
+| 인프라 | Docker Compose, Nginx, **20100**, `moveainetwork-hist` (30100과 병행) |
 
 ## 규칙
 
